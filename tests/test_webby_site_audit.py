@@ -103,7 +103,7 @@ class AuditCLITest(unittest.TestCase):
         FixtureHandler.routes = {
             "/blocked": (200, {"Content-Type": "text/html", "X-Robots-Tag": "nosnippet"}, page),
             "/robots.txt": (200, {"Content-Type": "text/plain"},
-                            b"User-agent: Googlebot\nAllow: /\n\nUser-agent: Bingbot\nDisallow: /blocked\n\nUser-agent: OAI-SearchBot\nDisallow: /blocked\n\nUser-agent: Claude-SearchBot\nDisallow: /blocked\n"),
+                            b"User-agent: Googlebot\nAllow: /\n\nUser-agent: Bingbot\nDisallow: /blocked\n\nUser-agent: OAI-SearchBot\nDisallow: /blocked\n\nUser-agent: Claude-SearchBot\nDisallow: /blocked\n\nUser-agent: PerplexityBot\nDisallow: /blocked\n"),
         }
         result, report = self.run_audit("/blocked", "--allow-private")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -111,6 +111,7 @@ class AuditCLITest(unittest.TestCase):
         self.assertEqual(self.by_id(report, "bingbot-access")["status"], "issue")
         self.assertEqual(self.by_id(report, "openai-search-access")["status"], "issue")
         self.assertEqual(self.by_id(report, "claude-search-access")["status"], "issue")
+        self.assertEqual(self.by_id(report, "perplexity-search-access")["status"], "issue")
         self.assertEqual(self.by_id(report, "index-directives")["status"], "issue")
         self.assertIn("noindex", self.by_id(report, "index-directives")["evidence"])
         self.assertEqual(self.by_id(report, "control-names")["status"], "issue")
