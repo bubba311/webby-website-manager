@@ -111,6 +111,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--signal); outlin
 .find-symbol { position: relative; display: inline-block; width: fit-content; color: #ee7a5c; font: 700 clamp(110px, 14vw, 210px)/.7 "Space Grotesk", sans-serif; letter-spacing: -.1em; }
 .find-symbol::after { content: ""; position: absolute; right: -.12em; bottom: .04em; width: .17em; height: .17em; background: #ee7a5c; }
 .find-aside p { max-width: 355px; margin-top: 42px; color: #dbddd3; font-size: clamp(17px, 1.6vw, 21px); line-height: 1.48; }
+.find-aside p strong { display: block; margin-bottom: 18px; color: var(--light); font: 700 clamp(27px, 2.5vw, 35px)/1.12 "Space Grotesk", sans-serif; letter-spacing: -.055em; }
 .find-triptych { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--night-rule); margin-top: clamp(85px, 9vw, 135px); }
 .find-triptych article { min-height: 290px; padding: 26px 38px 24px 0; border-right: 1px solid var(--night-rule); }
 .find-triptych article + article { padding-left: 38px; }
@@ -257,6 +258,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--signal); outlin
   .find-aside { grid-template-columns: 72px 1fr; gap: 20px; }
   .find-symbol { font-size: 100px; }
   .find-aside p { font-size: 16px; }
+  .find-aside p strong { font-size: clamp(23px, 6vw, 29px); }
   .find-triptych { margin-top: 56px; }
   .find-triptych article, .find-triptych article + article { display: grid; grid-template-columns: 54px 1fr; gap: 10px 14px; min-height: 0; border-right: 0; border-bottom: 1px solid var(--night-rule); padding: 23px 0 27px; }
   .find-triptych article > span { grid-row: span 2; font-size: 10px; line-height: 1.4; }

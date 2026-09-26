@@ -4,7 +4,7 @@
 
 # Webby. Your website teammate.
 
-**A beautiful website, with findability built in.**
+**Stand out to people. Make sense to AI.**
 
 Text your idea. Webby creates and updates a distinctive site, taking care of the readable structure, page details, links, and actions that help people, search engines, and AI agents find and use it. You do not need to learn those mechanics or write a separate brief. You decide what ships.
 
