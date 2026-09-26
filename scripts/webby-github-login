@@ -1,0 +1,78 @@
+#!/usr/bin/env node
+
+// Start GitHub's browser login without blocking the chat turn that must deliver its code.
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawn, spawnSync } = require('node:child_process');
+
+const stateDir = process.env.GH_CONFIG_DIR || path.join(os.homedir(), '.config', 'gh');
+const logPath = path.join(stateDir, 'webby-device-login.log');
+const pidPath = path.join(stateDir, 'webby-device-login.pid');
+const command = process.argv[2] || 'status';
+
+function authenticated() {
+  return spawnSync('gh', ['auth', 'status'], { stdio: 'ignore', timeout: 5000 }).status === 0;
+}
+
+function showStatus() {
+  if (authenticated()) {
+    const setup = spawnSync('gh', ['auth', 'setup-git'], { stdio: 'ignore', timeout: 5000 });
+    console.log(setup.status === 0 ? 'GitHub is connected and Git is ready.' : 'GitHub is connected; Git credential setup needs attention.');
+    return true;
+  }
+  return false;
+}
+
+function activeLogin() {
+  try {
+    const pid = Number(fs.readFileSync(pidPath, 'utf8'));
+    const age = Date.now() - fs.statSync(logPath).mtimeMs;
+    if (!Number.isSafeInteger(pid) || pid <= 0 || age > 12 * 60 * 1000) return false;
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function code() {
+  try {
+    return fs.readFileSync(logPath, 'utf8').match(/one-time code:\s*([A-Z0-9-]+)/i)?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
+async function main() {
+  if (!['start', 'status'].includes(command)) {
+    console.error('Usage: webby-github-login start|status');
+    process.exitCode = 2;
+    return;
+  }
+  if (showStatus()) return;
+  fs.mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+  if (command === 'start' && !activeLogin()) {
+    const log = fs.openSync(logPath, 'w', 0o600);
+    const child = spawn('gh', ['auth', 'login', '--hostname', 'github.com', '--git-protocol', 'https', '--web'], {
+      detached: true, stdio: ['ignore', log, log], env: process.env,
+    });
+    fs.closeSync(log);
+    child.unref();
+    fs.writeFileSync(pidPath, `${child.pid}\n`, { mode: 0o600 });
+  }
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const deviceCode = code();
+    if (deviceCode && activeLogin()) {
+      console.log(`Open https://github.com/login/device and enter code ${deviceCode}. Then run webby-github-login status.`);
+      return;
+    }
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  console.log(activeLogin() ? 'GitHub login is starting; run webby-github-login status in a few seconds.' : 'GitHub login did not start. Inspect the device login log for the error.');
+}
+
+main().catch(error => {
+  console.error(`GitHub login helper failed: ${error.message}`);
+  process.exitCode = 1;
+});

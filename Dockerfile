@@ -18,4 +18,5 @@ ENV AGENT_ID=webby-website-manager \
 
 COPY prompt/AGENTS.md /opt/plow/prompt/AGENTS.md
 COPY skills/ /opt/plow/skills/
+COPY scripts/webby-github-login /usr/local/bin/webby-github-login
 USER node

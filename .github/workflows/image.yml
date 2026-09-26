@@ -35,4 +35,4 @@ jobs:
       - name: Smoke check image
         if: github.event_name != 'workflow_dispatch' || !inputs.publish
         run: |
-          docker run --rm --entrypoint sh ghcr.io/${{ github.repository }}:webby-${{ github.sha }} -c 'command -v gh && command -v git && test -s /opt/plow/prompt/AGENTS.md && test -s /opt/plow/skills/webby-github/SKILL.md'
+          docker run --rm --entrypoint sh ghcr.io/${{ github.repository }}:webby-${{ github.sha }} -c 'command -v gh && command -v git && command -v webby-github-login && test -s /opt/plow/prompt/AGENTS.md && test -s /opt/plow/skills/webby-github/SKILL.md'

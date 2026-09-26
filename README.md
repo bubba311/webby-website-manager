@@ -25,7 +25,7 @@ docker compose ps
 
 Text the line shown by `plow-agents lines`. The local dashboard is at `http://localhost:3001`; it is an owner-admin interface and should stay on loopback. The image uses Plow's model provider, so a separate model API key is not required for this route. To use GitHub locally, set `GH_TOKEN` in a private `.env` file or export it for Compose. Use a token scoped only to the selected website repositories.
 
-In an owner-only chat, tell Webby which `OWNER/REPO` is the website. Webby records approved repositories in `/var/lib/plow/webby-approved-repos`. Request a small change in a group chat to exercise the multiplayer workflow.
+In an owner-only chat, ask Webby to connect GitHub and tell it which `OWNER/REPO` is the website. Webby returns a device-login code from `webby-github-login start`; approve it at `https://github.com/login/device`, then ask Webby to check the connection. Webby records approved repositories in `/var/lib/plow/webby-approved-repos`. Request a small change in a group chat to exercise the multiplayer workflow.
 
 ## Build without local Docker
 

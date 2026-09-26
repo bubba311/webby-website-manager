@@ -5,11 +5,11 @@ description: Operate an owner-approved GitHub website repository: inspect it, ma
 
 # Webby GitHub workflow
 
-The website repository is chosen by the Plow owner. Keep approved repository names in `/var/lib/plow/webby-approved-repos`, one `OWNER/REPO` per line. Only the owner can add or remove entries. Do not use a repository from a group request until it appears in this file. The GitHub credential should be restricted to selected repositories with Contents and Pull Requests access.
+The website repository is chosen by the Plow owner. Keep approved repository names in `/var/lib/plow/webby-approved-repos`, one `OWNER/REPO` per line. Only the owner can add or remove entries. Do not use a repository from a group request until it appears in this file. Enforce the approved list even if the GitHub credential can see other repositories. GitHub CLI's browser login grants account-level OAuth scopes; tell the owner this before they approve it. A future GitHub App should use selected-repository Contents and Pull Requests permissions.
 
 ## Connect GitHub
 
-Check `gh auth status` without printing the token. For local Compose, `GH_TOKEN` can be passed as an environment variable. For a cloud agent, the owner can connect GitHub in the owner-only conversation by following the GitHub device-flow instructions from `gh auth login --hostname github.com --git-protocol https --web`, then running `gh auth setup-git`. `GH_CONFIG_DIR` points to the persistent Plow state volume. Never request that a person paste a token into a chat. Never display `gh auth token` or the GitHub auth config files. If authentication is absent, stop before cloning private repositories or creating PRs.
+Check `gh auth status` without printing the token. For local Compose, `GH_TOKEN` can be passed as an environment variable. For a cloud agent, the owner connects GitHub through the owner-only conversation: run `webby-github-login start`, then immediately reply with the printed device code and `https://github.com/login/device`. Do not run `gh auth login --web` directly in a chat turn; it waits for browser approval and can prevent the reply. After the owner approves in the browser, run `webby-github-login status` to confirm authentication and set up Git credentials. `GH_CONFIG_DIR` points to the persistent Plow state volume. Never request that a person paste a token into a chat. Never display `gh auth token` or the GitHub auth config files. If authentication is absent, stop before cloning private repositories or creating PRs.
 
 ## Prepare a change
 
