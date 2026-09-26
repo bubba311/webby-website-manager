@@ -1,0 +1,284 @@
+#!/usr/bin/env node
+'use strict';
+
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const http = require('node:http');
+const net = require('node:net');
+const dns = require('node:dns').promises;
+
+const MAX_REQUESTS = 500;
+const MAX_BYTES = 64 * 1024 * 1024;
+const TIMEOUT = 120000;
+
+function publicAddress(address) {
+  if (net.isIPv4(address)) {
+    const [a, b, c] = address.split('.').map(Number);
+    return !(a === 0 || a === 10 || a === 127 || a >= 224 ||
+      (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) || (a === 192 && (b === 168 ||
+        (b === 0 && (c === 0 || c === 2)) || (b === 88 && c === 99))) ||
+      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+      (a === 203 && b === 0 && c === 113));
+  }
+  if (net.isIPv6(address)) {
+    const value = address.toLowerCase();
+    const [first, second] = value.split(':').map(part => parseInt(part || '0', 16));
+    // Only global unicast; exclude transition/special/documentation allocations.
+    return first >= 0x2000 && first <= 0x3fff &&
+      !(first === 0x2001 && (second <= 0x1ff || second === 0xdb8)) &&
+      first !== 0x2002 && first !== 0x3fff;
+  }
+  return false;
+}
+
+function hostOf(url) { return url.hostname.replace(/^\[|\]$/g, ''); }
+function loopbackHost(host) { return ['127.0.0.1', '::1', 'localhost'].includes(host); }
+
+function validateUrl(raw, loopbackOrigin = null) {
+  const url = new URL(raw);
+  if (url.username || url.password) throw new Error('URL credentials are not supported');
+  const preview = loopbackOrigin && url.origin === loopbackOrigin && loopbackHost(hostOf(url));
+  if (!preview && (url.protocol !== 'https:' || (url.port && url.port !== '443')))
+    throw new Error('Use public HTTPS on port 443 or an explicitly allowed loopback preview');
+  if (preview && !['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid preview protocol');
+  const host = hostOf(url);
+  if (!preview && (host === 'localhost' || host.endsWith('.localhost') ||
+      host.endsWith('.local') || !host.includes('.') && !net.isIP(host) ||
+      net.isIP(host) && !publicAddress(host))) throw new Error('Private or special network target blocked');
+  return url;
+}
+
+async function resolveTarget(raw, loopbackOrigin, lookup = dns.lookup) {
+  const url = validateUrl(raw, loopbackOrigin);
+  const host = hostOf(url);
+  if (url.origin === loopbackOrigin) {
+    return { url, address: host === '::1' ? '::1' : '127.0.0.1', family: host === '::1' ? 6 : 4 };
+  }
+  const records = net.isIP(host) ? [{ address: host, family: net.isIP(host) }] :
+    await Promise.race([lookup(host, { all: true, verbatim: true }),
+      new Promise((_, reject) => { const timer = setTimeout(() => reject(new Error('DNS lookup timed out')), 3000); timer.unref(); })]);
+  if (!records.length || records.some(r => !publicAddress(r.address)))
+    throw new Error('DNS resolved to a private or special address');
+  const chosen = records.find(r => r.family === 4) || records[0];
+  return { url, ...chosen };
+}
+
+async function guardedProxy(loopbackOrigin, blocked) {
+  let bytes = 0;
+  let connections = 0;
+  const sockets = new Set();
+  const record = (target, reason) => { if (blocked.length < 80) blocked.push({ target, reason }); };
+  const track = socket => {
+    sockets.add(socket);
+    socket.setTimeout(20000, () => socket.destroy());
+    socket.on('close', () => sockets.delete(socket));
+    socket.on('error', () => {});
+    socket.on('data', chunk => {
+      bytes += chunk.length;
+      if (bytes > MAX_BYTES) for (const open of sockets) open.destroy();
+    });
+    return socket;
+  };
+  const server = http.createServer(async (req, res) => {
+    try {
+      if (++connections > MAX_REQUESTS || bytes > MAX_BYTES) throw new Error('Network budget exceeded');
+      const target = await resolveTarget(req.url, loopbackOrigin);
+      if (target.url.protocol !== 'http:' || target.url.origin !== loopbackOrigin || !['GET', 'HEAD'].includes(req.method))
+        throw new Error('Only read-only loopback preview HTTP is allowed');
+      const headers = { ...req.headers };
+      delete headers['proxy-authorization']; delete headers['proxy-connection'];
+      delete headers.authorization; delete headers.cookie;
+      const upstream = http.request({ hostname: target.address, port: target.url.port || 80,
+        path: target.url.pathname + target.url.search, method: req.method, headers,
+        timeout: 15000, agent: false }, response => {
+        res.writeHead(response.statusCode, response.headers);
+        response.pipe(res);
+      });
+      upstream.on('socket', track);
+      upstream.on('timeout', () => upstream.destroy());
+      upstream.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
+      req.pipe(upstream);
+    } catch (error) {
+      record(req.url, error.message); res.writeHead(403); res.end('Blocked by render preview network policy');
+    }
+  });
+  server.on('connect', async (req, client, head) => {
+    try {
+      if (++connections > MAX_REQUESTS || bytes > MAX_BYTES) throw new Error('Network budget exceeded');
+      const target = await resolveTarget(`https://${req.url}`, loopbackOrigin);
+      const remote = track(net.connect({ host: target.address, port: target.url.port || 443 }));
+      remote.once('connect', () => {
+        client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+        if (head.length) remote.write(head);
+        remote.pipe(client); client.pipe(remote);
+      });
+      remote.on('error', () => client.destroy());
+      client.on('close', () => remote.destroy());
+    } catch (error) {
+      record(req.url, error.message);
+      client.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+    }
+  });
+  server.on('connection', track);
+  server.on('clientError', (_err, socket) => socket.destroy());
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  return { url: `http://127.0.0.1:${server.address().port}`,
+    close: async () => { for (const socket of sockets) socket.destroy(); await new Promise(resolve => server.close(resolve)); } };
+}
+
+function prepareOutput(raw) {
+  if (!path.isAbsolute(raw)) throw new Error('Output must be an absolute path to a new directory outside repositories');
+  const parent = fs.realpathSync(path.dirname(raw));
+  for (let current = parent; ; current = path.dirname(current)) {
+    if (fs.existsSync(path.join(current, '.git'))) throw new Error('Keep render artifacts outside source repositories');
+    if (path.dirname(current) === current) break;
+  }
+  const destination = path.join(parent, path.basename(raw));
+  fs.mkdirSync(destination, { mode: 0o700 }); // Existing output, including symlinks, is refused.
+  return destination;
+}
+
+function browserModule() {
+  const candidates = process.env.WEBBY_BROWSER_MODULE ? [process.env.WEBBY_BROWSER_MODULE] : [
+    '/opt/webby/browser/node_modules/playwright',
+    '/var/lib/plow/models/browser/node_modules/playwright',
+    path.join(os.homedir(), '.local/share/webby/browser/node_modules/playwright')];
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) continue;
+    if (!process.env.PLAYWRIGHT_BROWSERS_PATH) process.env.PLAYWRIGHT_BROWSERS_PATH = path.resolve(candidate, '../../browsers');
+    return require(candidate);
+  }
+  throw new Error('Playwright is unavailable; install the packaged browser runtime or set WEBBY_BROWSER_MODULE');
+}
+
+async function render({ url: raw, output: out, allowLoopback = false }) {
+  const input = new URL(raw);
+  const loopbackOrigin = allowLoopback && loopbackHost(hostOf(input)) ? input.origin : null;
+  if (allowLoopback && !loopbackOrigin) throw new Error('--allow-loopback applies only to localhost, 127.0.0.1, or [::1]');
+  await resolveTarget(raw, loopbackOrigin);
+  const playwright = browserModule();
+  process.umask(0o077);
+  const output = prepareOutput(out);
+  const report = { version: 1, requestedUrl: raw, createdAt: new Date().toISOString(), output,
+    authentication: 'Fresh contexts; no imported login, cookies, or credentials',
+    scope: 'Rendered observations only; no clicks, submissions, aesthetic score, full accessibility audit, or real-user performance measurement',
+    blockedRequests: [], views: [], errors: [] };
+  const proxy = await guardedProxy(loopbackOrigin, report.blockedRequests);
+  let browser;
+  const timer = setTimeout(() => { report.errors.push('Overall 120-second limit reached'); if (browser) browser.close().catch(() => {}); }, TIMEOUT);
+  try {
+    browser = await playwright.chromium.launch({ headless: true, timeout: 30000,
+      proxy: { server: proxy.url, bypass: '<-loopback>' },
+      args: ['--disable-quic', '--disable-background-networking', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp'] });
+    report.browser = browser.version();
+    let requests = 0;
+    for (const spec of [{ width: 320 }, { width: 375 }, { width: 768 }, { width: 1440 }, { width: 375, reduced: true }]) {
+      const label = `${spec.width}${spec.reduced ? '-reduced-motion' : ''}`;
+      const context = await browser.newContext({ viewport: { width: spec.width, height: 900 },
+        reducedMotion: spec.reduced ? 'reduce' : 'no-preference', serviceWorkers: 'block',
+        acceptDownloads: false, permissions: [], deviceScaleFactor: 1 });
+      const view = { label, width: spec.width, height: 900, reducedMotion: !!spec.reduced, errors: [], failedRequests: [] };
+      report.views.push(view);
+      try {
+        await context.route('**/*', async route => {
+          const request = route.request();
+          try {
+            if (++requests > MAX_REQUESTS) throw new Error('Request budget exceeded');
+            validateUrl(request.url(), loopbackOrigin);
+            if (!['GET', 'HEAD'].includes(request.method())) throw new Error('State-changing request blocked');
+            const headers = { ...request.headers() };
+            delete headers.cookie; delete headers.authorization; delete headers['proxy-authorization'];
+            await route.continue({ headers });
+          } catch (error) {
+            if (report.blockedRequests.length < 80) report.blockedRequests.push({ target: request.url(), reason: error.message });
+            await route.abort().catch(() => {});
+          }
+        });
+        if (context.routeWebSocket) await context.routeWebSocket('**/*', socket => socket.close());
+        const page = await context.newPage();
+        page.setDefaultTimeout(8000);
+        page.on('dialog', dialog => dialog.dismiss());
+        page.on('pageerror', error => { if (view.errors.length < 12) view.errors.push(error.message.slice(0, 400)); });
+        page.on('requestfailed', request => { if (view.failedRequests.length < 30) view.failedRequests.push({ url: request.url(), error: request.failure()?.errorText }); });
+        const response = await page.goto(raw, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        view.finalUrl = page.url(); view.status = response?.status();
+        await page.evaluate(() => Promise.race([document.fonts.ready, new Promise(resolve => setTimeout(resolve, 1500))]));
+        await page.waitForTimeout(500);
+        view.measurements = await page.evaluate(() => {
+          const visible = el => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+          const describe = el => ({ tag: el.tagName.toLowerCase(), id: el.id || undefined,
+            text: (el.getAttribute('aria-label') || el.innerText || el.getAttribute('alt') || '').trim().slice(0, 100) });
+          const elements = [...document.querySelectorAll('body *')].slice(0, 10000).filter(visible);
+          return { title: document.title, documentWidth: document.documentElement.scrollWidth,
+            viewportWidth: innerWidth, documentHeight: document.documentElement.scrollHeight,
+            reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+            overflowCandidates: elements.filter(el => { const r = el.getBoundingClientRect(); return r.left < -1 || r.right > innerWidth + 1; }).slice(0, 40).map(describe),
+            headings: [...document.querySelectorAll('h1,h2,h3')].slice(0, 40).map(el => ({ ...describe(el), fontSize: getComputedStyle(el).fontSize })),
+            controls: elements.filter(el => el.matches('a[href],button,input,select,textarea,[role="button"]')).slice(0, 80).map(el => {
+              const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
+              return { ...describe(el), width: Math.round(r.width), height: Math.round(r.height), fontSize: s.fontSize, color: s.color, background: s.backgroundColor };
+            }),
+            images: [...document.images].slice(0, 60).map(el => ({ ...describe(el), loaded: el.complete && el.naturalWidth > 0 })) };
+        });
+        const height = Math.min(view.measurements.documentHeight, 16000);
+        view.screenshots = { viewport: `${label}-viewport.png`, page: `${label}-page.png` };
+        await page.screenshot({ path: path.join(output, view.screenshots.viewport), timeout: 10000 });
+        await page.screenshot({ path: path.join(output, view.screenshots.page), fullPage: true,
+          clip: { x: 0, y: 0, width: spec.width, height }, timeout: 10000 });
+        view.pageCaptureTruncated = view.measurements.documentHeight > height;
+        if (page.locator('body').ariaSnapshot) {
+          view.accessibilitySnapshot = `${label}-accessibility.txt`;
+          fs.writeFileSync(path.join(output, view.accessibilitySnapshot), (await page.locator('body').ariaSnapshot()).slice(0, 100000));
+        }
+        view.visibleText = `${label}-text.txt`;
+        fs.writeFileSync(path.join(output, view.visibleText), (await page.locator('body').innerText()).slice(0, 150000));
+        view.keyboardSample = [];
+        for (let step = 1; step <= 12; step++) {
+          await page.keyboard.press('Tab');
+          view.keyboardSample.push(await page.evaluate(step => {
+            const el = document.activeElement, r = el.getBoundingClientRect(), s = getComputedStyle(el);
+            return { step, tag: el.tagName.toLowerCase(), name: (el.getAttribute('aria-label') || el.innerText || '').trim().slice(0, 100),
+              bounds: { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) },
+              outline: `${s.outlineWidth} ${s.outlineStyle} ${s.outlineColor}`, boxShadow: s.boxShadow };
+          }, step));
+        }
+        view.screenshots.focusSample = `${label}-focus.png`;
+        await page.screenshot({ path: path.join(output, view.screenshots.focusSample), timeout: 10000 });
+      } catch (error) { view.errors.push(error.message.slice(0, 800)); }
+      finally { await context.close().catch(() => {}); }
+    }
+  } catch (error) { report.errors.push(error.message.slice(0, 1000)); }
+  finally {
+    clearTimeout(timer);
+    if (browser) await browser.close().catch(() => {});
+    await proxy.close();
+    fs.writeFileSync(path.join(output, 'manifest.json'), JSON.stringify(report, null, 2) + '\n');
+  }
+  return report;
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  if (args.includes('--help')) {
+    console.log('Usage: webby-render-check URL --output /absolute/new/artifact-directory [--allow-loopback]\nRenders 320/375/768/1440px plus reduced motion; saves screenshots and observations.\nOnly public HTTPS or an explicitly allowed exact loopback preview origin. No saved login.');
+    return;
+  }
+  const raw = args.shift();
+  let output, allowLoopback = false;
+  while (args.length) {
+    const arg = args.shift();
+    if (arg === '--output' && !output) output = args.shift();
+    else if (arg === '--allow-loopback') allowLoopback = true;
+    else throw new Error(`Unknown argument: ${arg}`);
+  }
+  if (!raw || !output) throw new Error('URL and --output are required; see --help');
+  const report = await render({ url: raw, output, allowLoopback });
+  console.log(JSON.stringify({ manifest: path.join(report.output, 'manifest.json'), views: report.views.length,
+    errors: report.errors.length + report.views.reduce((sum, view) => sum + view.errors.length, 0) }));
+  if (report.errors.length || report.views.some(view => view.errors.length || !view.screenshots)) process.exitCode = 1;
+}
+
+module.exports = { publicAddress, validateUrl, resolveTarget, prepareOutput, render, guardedProxy };
+if (require.main === module) main().catch(error => { console.error(`webby-render-check: ${error.message}`); process.exitCode = 1; });

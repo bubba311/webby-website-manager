@@ -1,10 +1,10 @@
 <p align="center">
-  <a href="https://bubba311.github.io/webby-website-manager/"><img src="site/social-card.png" alt="Webby: Look good. Be found. Create, update, and check websites." width="960" /></a>
+  <a href="https://bubba311.github.io/webby-website-manager/"><img src="site/social-card.png" alt="Webby: Built to win the agentic economy. Design, discovery, and agent access built in." width="960" /></a>
 </p>
 
 # Webby. Your website teammate.
 
-**Stand out to people. Make sense to AI.**
+**Built to win the agentic economy.**
 
 Text your idea. Webby creates and updates a distinctive site, taking care of the readable structure, page details, links, and actions that help people, search engines, and AI agents find and use it. You do not need to learn those mechanics or write a separate brief. You decide what ships.
 
@@ -24,11 +24,19 @@ For code changes, Webby opens a pull request. An audit starts with a report; Web
 
 ### The quiet work comes standard.
 
-Webby considers the whole visitor path while it builds: a page with a meaningful title and description, visible answers to what the company does, links that lead somewhere real, and controls people can understand. Its draft checks catch common structural and link problems before a pull request. For a published site, ask Webby for a deeper read-only check of crawl access, content, and actions; it shows evidence and fixes without a mystery score. No extra configuration is required for the draft checks.
+Webby considers the whole visitor path while it builds: a page with a meaningful title and description, visible answers to what the company does, links that lead somewhere real, and controls people can understand. It applies those details alongside a deliberate visual direction, readable type, responsive spacing, and useful interaction states. Its browser helper captures the actual page at phone, tablet, and desktop sizes for visual review.
+
+For a published site, Webby separates whether a service can reach the page, understand its facts, use it as a source, and complete a visitor task. It shows evidence and fixes without a mystery score. Search citations require actual search observations; an accessible page or a successful reading test alone does not establish them. These principles are part of the normal workflow, so founders do not need a separate optimization brief.
+
+### Your models. One coherent website.
+
+Choose one writer for a whole site, or give different sections to different models—even within the same page. Webby supports Codex and Claude Code subscription connections, OpenAI, Anthropic and Gemini APIs, and configured OpenAI-compatible services. It collects bounded drafts, preserves a shared visual direction and voice, checks the assembled work, and returns one pull request. Connect each selected provider once; [the model guide](docs/MODEL_CHOICE.md) explains the available login routes and their limits.
+
+You can also choose a reader model to check what the page communicates: the offer, audience, next action, and evidence. That checks understanding of supplied content; actual search discovery and citations require separate observations. The model receipt records what ran, what the provider reported, and any failure. No provider is silently substituted.
 
 ## This is Webby's own website.
 
-![Preview of Webby's editorial website, with the headline Make a site worth finding](docs/assets/webby-site-preview.png)
+![Preview of Webby's editorial website, with the headline Built to win the agentic economy](docs/assets/webby-site-preview.png)
 
 Webby made its first real change to the site in [`site/`](site/). [PR #1](https://github.com/bubba311/webby-website-manager/pull/1) contains that change and the create and check workflows. [PR #2](https://github.com/bubba311/webby-website-manager/pull/2) contains the editorial redesign previewed above. The public site deploys from `main` after a reviewed merge.
 
@@ -48,6 +56,8 @@ Already have a site? Ask for a specific change. Want a check first? Send its app
 | [`starter-site/`](starter-site/) and [`skills/webby-create/`](skills/webby-create/) | A first site from a short brief, delivered for review. |
 | [`skills/webby-github/`](skills/webby-github/) | GitHub connection, approved repositories, branches, and pull requests. |
 | [`skills/webby-audit/`](skills/webby-audit/) and [`scripts/webby-site-audit`](scripts/webby-site-audit) | Read-only checks of a live site's access, content, and controls. |
+| [`skills/webby-model-choice/`](skills/webby-model-choice/) and [`scripts/webby-model-draft`](scripts/webby-model-draft) | Model-selected section/file drafts and reader checks, with scoped patches and run receipts. |
+| [`scripts/webby-render-check`](scripts/webby-render-check) | Phone/desktop screenshots and page observations for rendered review. |
 | [`prompt/AGENTS.md`](prompt/AGENTS.md) | Webby's role and owner approval rules. |
 
 The live-site check can also run without Webby:

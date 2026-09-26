@@ -50,6 +50,8 @@ The audit checks what a public page serves and how its controls are labeled. It 
 - `skills/webby-github/SKILL.md`: the first real website workflow.
 - `skills/webby-create/SKILL.md` and `starter-site/`: create a first website from a short brief, then review it as a pull request.
 - `skills/webby-audit/SKILL.md` and `scripts/webby-site-audit`: evidence-based live-site access and usability checks.
+- `skills/webby-model-choice/`, `scripts/webby-model-connect`, and `scripts/webby-model-draft`: [connect preferred models](MODEL_CHOICE.md), assign specific sections or whole files, and review the combined draft.
+- `scripts/webby-render-check`: capture phone/desktop screenshots and rendered-page observations using the browser included in the image.
 - `compose.yml`: local Plow development with a loopback dashboard.
 - `.github/workflows/image.yml`: remote Docker build for computers without Docker; publishing is a separate manual dispatch.
 - `.github/workflows/site.yml`: checks the static site's links and assets on pull requests.

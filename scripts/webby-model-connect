@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+"""Connect owner-selected model accounts without putting credentials in chat."""
+
+import argparse
+from contextlib import contextmanager
+import fcntl
+import getpass
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+
+
+def private_directory(path):
+    path = Path(path).absolute()
+    for parent in (path, *path.parents):
+        if parent.is_symlink():
+            raise ValueError("Model state cannot use a symlinked directory")
+        if (parent / ".git").exists():
+            raise ValueError("Keep model credentials outside website repositories")
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    info = path.stat()
+    if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
+        raise ValueError("Model state must be an owner-only directory (mode 700)")
+    return path
+
+
+def write_private(path, value):
+    if path.is_symlink():
+        raise ValueError("Refusing to replace a symlink")
+    fd, temporary = tempfile.mkstemp(prefix=".webby-", dir=path.parent)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            stream.write(value)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+@contextmanager
+def configuration_lock(root):
+    descriptor = os.open(root / ".connect.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise ValueError("Connection lock must be an owner-only regular file")
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)
+
+
+def initial_config(root):
+    return {"version": 1, "providers": {
+        "codex": {"kind": "codex", "auth_dir": str(root / "codex")},
+        "claude": {"kind": "claude", "auth_dir": str(root / "claude")},
+        "openai": {"kind": "openai", "api_key_env": "WEBBY_OPENAI_API_KEY"},
+        "anthropic": {"kind": "anthropic", "api_key_env": "WEBBY_ANTHROPIC_API_KEY"},
+        "gemini": {"kind": "gemini", "api_key_env": "WEBBY_GEMINI_API_KEY"},
+        "openrouter": {"kind": "compatible", "api_key_env": "WEBBY_OPENROUTER_API_KEY",
+                       "base_url": "https://openrouter.ai/api/v1"},
+    }}
+
+
+def initialize(root):
+    root = private_directory(root)
+    target = root / "config.json"
+    with configuration_lock(root):
+        if not target.exists():
+            write_private(target, json.dumps(initial_config(root), indent=2) + "\n")
+        info = target.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise ValueError("Provider configuration must be an owner-only regular file")
+        return root, target, json.loads(target.read_text())
+
+
+def login_env(root, provider):
+    # Keep the terminal/browser environment, not other app or provider credentials.
+    allowed = {"PATH", "HOME", "USER", "LANG", "TERM", "DISPLAY", "WAYLAND_DISPLAY",
+               "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "BROWSER", "SSL_CERT_FILE",
+               "SSL_CERT_DIR", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "CODEX_CA_CERTIFICATE",
+               "NODE_EXTRA_CA_CERTS", "REQUESTS_CA_BUNDLE"}
+    env = {key: value for key, value in os.environ.items() if key in allowed or key.startswith("LC_")}
+    auth = private_directory(root / provider)
+    env["CODEX_HOME" if provider == "codex" else "CLAUDE_CONFIG_DIR"] = str(auth)
+    return env
+
+
+def connected(root, provider):
+    command = [provider, "login", "status"] if provider == "codex" else [provider, "auth", "status", "--json"]
+    try:
+        result = subprocess.run(command, env=login_env(root, provider), capture_output=True, timeout=15)
+        if provider == "claude":
+            status = json.loads(result.stdout)
+            return result.returncode == 0 and status.get("loggedIn") is True and status.get("authMethod") == "claude.ai"
+        return result.returncode == 0 and b"logged in using chatgpt" in (result.stdout + result.stderr).lower()
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return False
+
+
+def device_status(root):
+    if connected(root, "codex"):
+        return {"provider": "codex", "status": "connected"}
+    record = root / "codex-login.json"
+    if not record.exists():
+        return {"provider": "codex", "status": "not_connected"}
+    value = json.loads(record.read_text())
+    if time.time() - value.get("started", 0) > 15 * 60:
+        return {"provider": "codex", "status": "expired"}
+    if value.get("finished"):
+        return {"provider": "codex", "status": "login_failed", "exit_code": value.get("exit_code")}
+    try:
+        os.kill(value["pid"], 0)
+    except (KeyError, OSError):
+        return {"provider": "codex", "status": "not_running"}
+    log = root / "codex-login.log"
+    output = log.read_text(errors="replace")[-16000:] if log.exists() else ""
+    output = re.sub(r"\x1b\[[0-9;]*m", "", output)
+    # Expose only the provider's documented device URL and short one-time code.
+    url = re.search(r"https://auth\.openai\.com/codex/device\b", output)
+    code = re.search(r"\b([A-Z0-9]{4,8}-[A-Z0-9]{4,8})\b", output)
+    result = {"provider": "codex", "status": "waiting_for_browser" if url and code else "starting"}
+    if url and code:
+        result.update(verification_url=url.group(), user_code=code.group(1))
+    return result
+
+
+def device_worker(root):
+    record = {"pid": os.getpid(), "started": time.time()}
+    write_private(root / "codex-login.json", json.dumps(record))
+    log = root / "codex-login.log"
+    write_private(log, "")
+    try:
+        with log.open("w") as stream:
+            result = subprocess.run(["codex", "login", "--device-auth"], env=login_env(root, "codex"),
+                                    stdin=subprocess.DEVNULL, stdout=stream, stderr=stream, timeout=12 * 60)
+        record["exit_code"] = result.returncode
+    except (OSError, subprocess.TimeoutExpired):
+        record["exit_code"] = 1
+    record["finished"] = True
+    write_private(root / "codex-login.json", json.dumps(record))
+
+
+def save_key(root, target, config, name, key):
+    profile = config.get("providers", {}).get(name)
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", name) or not isinstance(profile, dict):
+        raise ValueError("Choose a configured API provider profile")
+    if profile.get("kind") not in ("openai", "anthropic", "gemini", "compatible"):
+        raise ValueError("Use subscription login for this profile, or choose an API profile")
+    if not key or any(char.isspace() for char in key) or len(key) > 8192:
+        raise ValueError("Expected a single nonempty API key")
+    with configuration_lock(root):
+        config = json.loads(target.read_text())
+        profile = config.get("providers", {}).get(name)
+        if not isinstance(profile, dict) or profile.get("kind") not in ("openai", "anthropic", "gemini", "compatible"):
+            raise ValueError("Provider profile changed during setup; check it before reconnecting")
+        key_path = root / (name + ".key")
+        write_private(key_path, key + "\n")
+        profile.pop("api_key_env", None)
+        profile["api_key_file"] = str(key_path)
+        write_private(target, json.dumps(config, indent=2) + "\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--state-dir", default=os.environ.get("WEBBY_MODEL_STATE_DIR", str(Path.home() / ".local/share/webby/models")))
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("init", help="Create a private provider configuration without overwriting it")
+    for verb in ("login", "status"):
+        child = sub.add_parser(verb)
+        child.add_argument("provider", choices=("codex", "claude"))
+    key_parser = sub.add_parser("key", help="Enter a key in this private terminal; never send it in chat")
+    key_parser.add_argument("profile")
+    prefer = sub.add_parser("prefer", help="Remember an exact model ID or intentional provider alias")
+    prefer.add_argument("profile")
+    prefer.add_argument("model")
+    sub.add_parser("_device-worker", help="Internal device-login worker")
+    args = parser.parse_args()
+    if args.command == "_device-worker":
+        device_worker(private_directory(args.state_dir))
+        return
+    root, target, config = initialize(args.state_dir)
+    if args.command == "init":
+        print(json.dumps({"config": str(target), "status": "initialized"}))
+    elif args.command == "key":
+        if not sys.stdin.isatty():
+            raise ValueError("Enter the API key in a private interactive terminal; chat input is not supported")
+        save_key(root, target, config, args.profile, getpass.getpass("API key (hidden): ").strip())
+        print(json.dumps({"provider": args.profile, "status": "key_stored", "config": str(target)}))
+    elif args.command == "prefer":
+        if not args.model.strip() or len(args.model) > 160 or any(c.isspace() for c in args.model):
+            raise ValueError("Use an available model ID or a provider-supported alias")
+        with configuration_lock(root):
+            config = json.loads(target.read_text())
+            if args.profile not in config.get("providers", {}):
+                raise ValueError("Choose a configured provider profile")
+            config["providers"][args.profile]["default_model"] = args.model
+            write_private(target, json.dumps(config, indent=2) + "\n")
+        print(json.dumps({"provider": args.profile, "default_model": args.model}))
+    else:
+        provider = args.provider
+        profile = config.get("providers", {}).get(provider, {})
+        if profile.get("kind") != provider or profile.get("auth_dir") != str(root / provider):
+            raise ValueError("This helper manages its own named subscription profiles; preserve custom profiles and use their provider login directly")
+        if not shutil.which(provider):
+            raise ValueError(f"{provider} CLI is not installed on this machine")
+        if args.command == "status":
+            print(json.dumps(device_status(root) if provider == "codex" else {"provider": provider, "status": "connected" if connected(root, provider) else "not_connected"}))
+        elif connected(root, provider):
+            print(json.dumps({"provider": provider, "status": "connected"}))
+        elif provider == "claude":
+            if not sys.stdin.isatty():
+                raise ValueError("Claude subscription login needs a private interactive terminal on the machine running Webby. Run this command there and complete the provider browser flow. Do not paste the returned login code into chat.")
+            subprocess.run(["claude", "auth", "login", "--claudeai"], env=login_env(root, provider), check=True)
+            print(json.dumps({"provider": provider, "status": "connected" if connected(root, provider) else "not_connected"}))
+        else:
+            with configuration_lock(root):
+                status = device_status(root)
+                if status["status"] not in ("connected", "starting", "waiting_for_browser"):
+                    write_private(root / "codex-login.log", "")
+                    worker = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--state-dir", str(root), "_device-worker"],
+                                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                    write_private(root / "codex-login.json", json.dumps({"pid": worker.pid, "started": time.time()}))
+                    for _ in range(10):
+                        time.sleep(.3)
+                        status = device_status(root)
+                        if status["status"] == "waiting_for_browser":
+                            break
+            print(json.dumps(status))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, subprocess.SubprocessError):
+        # Never echo provider output, URLs, or credential-bearing exception bodies.
+        error = sys.exc_info()[1]
+        print(str(error) if isinstance(error, ValueError) else "Connection setup failed; check the private terminal and provider status.", file=sys.stderr)
+        sys.exit(2)
