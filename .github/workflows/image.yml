@@ -29,5 +29,10 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+          load: ${{ github.event_name != 'workflow_dispatch' || !inputs.publish }}
           tags: ghcr.io/${{ github.repository }}:webby-${{ github.sha }}
           platforms: linux/amd64
+      - name: Smoke check image
+        if: github.event_name != 'workflow_dispatch' || !inputs.publish
+        run: |
+          docker run --rm --entrypoint sh ghcr.io/${{ github.repository }}:webby-${{ github.sha }} -c 'command -v gh && command -v git && test -s /opt/plow/prompt/AGENTS.md && test -s /opt/plow/skills/webby-github/SKILL.md'

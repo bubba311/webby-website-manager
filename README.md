@@ -9,6 +9,7 @@ Webby is a multiplayer OpenClaw agent for startup websites. A teammate requests 
 - `skills/webby-github/SKILL.md`: the first real website workflow.
 - `compose.yml`: local Plow development with a loopback dashboard.
 - `.github/workflows/image.yml`: remote Docker build for computers without Docker; publishing is a separate manual dispatch.
+- `site/`: Webby's own startup website, which is the first site to manage.
 
 ## Connect and run locally
 
@@ -39,3 +40,7 @@ For the hackathon, Webby's image sets `AGENT_ID=webby-website-manager`, so the i
 4. Confirm Webby returns a pull request and a working preview. Approve and merge only after review, then have Webby verify the live page.
 
 Webby currently operates GitHub-backed sites. Webflow, Framer, and Wix adapters are planned after this workflow has real users.
+
+## Webby's own website
+
+The static site in `site/` can be previewed with `python3 -m http.server 8000 --directory site` and opened at `http://localhost:8000`. Once the repository is public and GitHub Pages is enabled with GitHub Actions as its source, the manual `Publish Webby website` workflow deploys it. This is a real site for Webby's first pull-request test; the site itself does not require a framework or a separate hosting account.
