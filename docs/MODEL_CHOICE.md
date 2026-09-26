@@ -12,13 +12,15 @@ From the Webby repository, build the separate runner image. It contains the Code
 docker build -f model-runner/Dockerfile -t webby-model-runner:local .
 ```
 
-Connect only the agents you want to use. The first command prints a Codex device-login code. The second starts Claude Code's subscription browser login. Each login is stored in a separate, private directory under `~/.local/share/webby-model-runner/` on this computer. Do not paste tokens into chat or commit them.
+Connect only the agents you want to use. The first command prints a Codex device-login code; [OpenAI's setup guide](https://learn.chatgpt.com/docs/auth#preferred-device-code-authentication-beta) says personal accounts must enable device-code login in ChatGPT security settings, or a workspace admin must enable it in workspace permissions. The second starts Claude Code's subscription browser login. Each login is stored in a separate, private directory under `~/.local/share/webby-model-runner/` on this computer. Do not paste tokens into chat or commit them.
 
 ```sh
 python3 scripts/webby-model-runner login codex
 python3 scripts/webby-model-runner login claude
 python3 scripts/webby-model-runner doctor
 ```
+
+`doctor` reports each agent separately and succeeds when at least one is ready. Use `doctor codex` or `doctor claude` to check the agent requested for a particular site. Before every run, Webby checks only the agents in that plan. Codex also needs its Linux sandbox to start inside Docker; if Docker blocks that nested sandbox, the runner stops before touching the website. It will not switch to unrestricted Codex execution while the subscription login is present.
 
 The runner needs Docker on the machine doing the work. Keep that machine's Docker daemon and subscription login directories under the owner's control. The runner has access to the selected subscription credential and site source while it works, but does not mount the Plow volume, the host home directory, a GitHub token, or the Docker socket into the coding-agent container.
 

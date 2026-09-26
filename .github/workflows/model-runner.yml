@@ -1,0 +1,45 @@
+name: Check model companion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'model-runner/**'
+      - 'scripts/webby-model-runner'
+      - 'tests/test_webby_model_runner.py'
+      - '.github/workflows/model-runner.yml'
+  pull_request:
+    paths:
+      - 'model-runner/**'
+      - 'scripts/webby-model-runner'
+      - 'tests/test_webby_model_runner.py'
+      - '.github/workflows/model-runner.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  runner:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check plan and patch controls
+        run: python3 -m unittest discover -s tests -p 'test_webby_model_runner.py' -v
+      - name: Build isolated runner image
+        run: docker build -f model-runner/Dockerfile -t webby-model-runner:ci .
+      - name: Check installed coding agents
+        run: |
+          docker run --rm webby-model-runner:ci codex --version
+          docker run --rm webby-model-runner:ci claude --version
+      - name: Record nested Codex sandbox support
+        run: |
+          mkdir -p "$RUNNER_TEMP/webby-codex-home"
+          if docker run --rm --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=256 --memory=4g --read-only --tmpfs=/tmp:rw,nosuid,nodev \
+            --user "$(id -u):$(id -g)" --env HOME=/home/webby \
+            --mount "type=bind,src=$RUNNER_TEMP/webby-codex-home,dst=/home/webby" \
+            webby-model-runner:ci codex sandbox /bin/true; then
+            echo 'Codex nested sandbox: available with this Docker profile.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Codex nested sandbox: unavailable with this Docker profile. The companion refuses Codex jobs on this host.' >> "$GITHUB_STEP_SUMMARY"
+          fi

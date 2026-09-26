@@ -124,6 +124,28 @@ def agent_command(agent: str, prompt: str) -> list[str]:
             "--permission-prompts", "none", "-p", prompt]
 
 
+def agent_readiness(agent: str, image: str, state_dir: Path) -> tuple[bool, str]:
+    """Check the selected harness without sending a model request or exposing auth output."""
+    if agent == "codex":
+        # Codex uses nested bubblewrap on Linux. Docker defaults may block its
+        # namespaces even though the CLI starts and OAuth is connected.
+        with tempfile.TemporaryDirectory(prefix="webby-codex-probe-") as probe:
+            # The pinned Codex CLI uses `codex sandbox COMMAND` on Linux.
+            probe_args = docker_base(image, Path(probe)) + ["codex", "sandbox", "/bin/true"]
+            try:
+                command(probe_args, timeout=30)
+            except RunnerError:
+                return False, ("Codex sandbox cannot start on this Docker host. "
+                               "Do not bypass it while subscription credentials are mounted.")
+    home = private_home(state_dir, agent)
+    auth = ["codex", "login", "status"] if agent == "codex" else ["claude", "auth", "status"]
+    try:
+        command(docker_base(image, home) + auth, timeout=30)
+    except RunnerError:
+        return False, f"needs subscription login; run webby-model-runner login {agent}"
+    return True, "ready"
+
+
 def prompt_for(plan: dict, step: dict) -> str:
     paths = ", ".join(step["paths"])
     return (f"Build or improve this website from the owner's brief: {plan['brief']}\n\n"
@@ -181,6 +203,11 @@ def run_plan(plan: dict, repo: Path, patch: Path, image: str, state_dir: Path) -
         raise RunnerError("Start from a clean branch so the patch has a clear base.")
     if patch.is_relative_to(repo):
         raise RunnerError("Write the patch outside the checkout, then inspect it before applying.")
+    command(["docker", "image", "inspect", image], timeout=15)
+    for agent in sorted({step["agent"] for step in plan["steps"]}):
+        ready, reason = agent_readiness(agent, image, state_dir)
+        if not ready:
+            raise RunnerError(f"{agent} is unavailable: {reason}")
     base = command(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
     with tempfile.TemporaryDirectory(prefix="webby-model-") as temp:
         checkout = Path(temp) / "site"
@@ -223,23 +250,20 @@ def run_plan(plan: dict, repo: Path, patch: Path, image: str, state_dir: Path) -
     print(f"Apply on the clean branch: git apply --check {patch} && git apply {patch}")
 
 
-def doctor(image: str, state_dir: Path) -> int:
+def doctor(image: str, state_dir: Path, selected: str | None = None) -> int:
     try:
         command(["docker", "image", "inspect", image], timeout=15)
     except RunnerError as error:
         print(f"Runner image unavailable: {error}")
         print("Build it with: docker build -f model-runner/Dockerfile -t webby-model-runner:local .")
         return 1
-    ready = True
-    for agent in sorted(AGENTS):
-        home = private_home(state_dir, agent)
-        auth = ["codex", "login", "status"] if agent == "codex" else ["claude", "auth", "status"]
-        result = subprocess.run(docker_base(image, home) + auth, text=True,
-                                capture_output=True, timeout=30, check=False)
-        connected = result.returncode == 0
-        print(f"{agent}: {'ready' if connected else 'needs login'}")
-        ready &= connected
-    return 0 if ready else 1
+    statuses = []
+    for agent in ([selected] if selected else sorted(AGENTS)):
+        ready, reason = agent_readiness(agent, image, state_dir)
+        print(f"{agent}: {reason}")
+        statuses.append(ready)
+    # A general check is useful when the owner connects only one agent.
+    return 0 if any(statuses) else 1
 
 
 def main() -> int:
@@ -248,7 +272,8 @@ def main() -> int:
     parser.add_argument("--state-dir", type=Path,
                         default=Path.home() / ".local/share/webby-model-runner")
     sub = parser.add_subparsers(dest="action", required=True)
-    sub.add_parser("doctor")
+    check = sub.add_parser("doctor")
+    check.add_argument("agent", nargs="?", choices=sorted(AGENTS))
     login = sub.add_parser("login")
     login.add_argument("agent", choices=sorted(AGENTS))
     run = sub.add_parser("run")
@@ -258,7 +283,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.action == "doctor":
-            return doctor(args.image, args.state_dir)
+            return doctor(args.image, args.state_dir, args.agent)
         if args.action == "login":
             home = private_home(args.state_dir, args.agent)
             login_args = (["codex", "login", "--device-auth"] if args.agent == "codex"

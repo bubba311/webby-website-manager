@@ -54,7 +54,10 @@ class ModelRunnerTests(unittest.TestCase):
             fake_docker.write_text("""#!/usr/bin/env python3
 import pathlib, sys
 args = sys.argv[1:]
-mount = next(args[i + 1] for i, x in enumerate(args) if x == '--mount' and 'dst=/work' in args[i + 1])
+work_mounts = [args[i + 1] for i, x in enumerate(args) if x == '--mount' and ',dst=/work' in args[i + 1]]
+if not work_mounts:
+    sys.exit(0)
+mount = work_mounts[0]
 repo = pathlib.Path(mount.split(',dst=')[0].split('src=')[1])
 if 'codex' in args:
     (repo / 'site/index.html').write_text('<h1>Codex</h1>\\n')
@@ -95,7 +98,10 @@ else:
             fake_docker.write_text("""#!/usr/bin/env python3
 import pathlib, sys
 args = sys.argv[1:]
-mount = next(args[i + 1] for i, x in enumerate(args) if x == '--mount' and 'dst=/work' in args[i + 1])
+work_mounts = [args[i + 1] for i, x in enumerate(args) if x == '--mount' and ',dst=/work' in args[i + 1]]
+if not work_mounts:
+    sys.exit(0)
+mount = work_mounts[0]
 repo = pathlib.Path(mount.split(',dst=')[0].split('src=')[1])
 (repo / 'site/other.html').write_text('Outside scope\\n')
 """)
@@ -123,6 +129,49 @@ repo = pathlib.Path(mount.split(',dst=')[0].split('src=')[1])
             git(repo, "add", "-A")
             with self.assertRaisesRegex(runner.RunnerError, "unsupported file type"):
                 runner.reject_special_files(repo, ["site/contact.html"])
+
+    def test_doctor_checks_selected_agent_and_codex_sandbox_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fake_bin = root / "bin"
+            fake_bin.mkdir()
+            fake_docker = fake_bin / "docker"
+            fake_docker.write_text("""#!/usr/bin/env python3
+import sys
+args = sys.argv[1:]
+if 'sandbox' in args:
+    sys.exit(1)
+sys.exit(0)
+""")
+            fake_docker.chmod(0o755)
+            env = os.environ.copy()
+            env["PATH"] = f"{fake_bin}:{env['PATH']}"
+            base = [sys.executable, str(SCRIPT), "--state-dir", str(root / "state")]
+            for agent, expected in (("claude", 0), ("codex", 1)):
+                result = subprocess.run(base + ["doctor", agent], text=True,
+                                        capture_output=True, env=env, check=False)
+                self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+            general = subprocess.run(base + ["doctor"], text=True,
+                                     capture_output=True, env=env, check=False)
+            self.assertEqual(general.returncode, 0, general.stdout + general.stderr)
+            self.assertIn("Codex sandbox cannot start", general.stdout)
+            repo = root / "repo"
+            repo.mkdir()
+            git(repo, "init", "-q")
+            (repo / "site").mkdir()
+            (repo / "site/index.html").write_text("<h1>Start</h1>\n")
+            git(repo, "add", ".")
+            git(repo, "-c", "user.name=Test", "-c", "user.email=test@example.com",
+                "commit", "-qm", "Initial site")
+            plan = root / "plan.json"
+            plan.write_text(json.dumps({"brief": "A real site", "steps": [
+                {"agent": "codex", "task": "Build it", "paths": ["site/**"]}]}))
+            patch = root / "result.patch"
+            run = subprocess.run(base + ["run", str(plan), "--repo", str(repo), "--patch", str(patch)],
+                                 text=True, capture_output=True, env=env, check=False)
+            self.assertNotEqual(run.returncode, 0)
+            self.assertIn("codex is unavailable", run.stderr)
+            self.assertFalse(patch.exists())
 
 
 if __name__ == "__main__":
