@@ -20,13 +20,15 @@ One-click installation is pending on the Agent Index. The cloud route below work
 2. Replace `LINE_UID` with an available line ID from the previous command, then deploy the current Webby image:
 
    ```sh
-   ./bin/plow-agents deploy ghcr.io/bubba311/webby-website-manager@sha256:4ea4277008ed87501251285aff38d6a1e92986a9e4167358e6dc201906f18d24 --line LINE_UID
+   ./bin/plow-agents deploy ghcr.io/bubba311/webby-website-manager@sha256:56caab940db924620742d78ec04c9782a56420a30b5df759a7861e0a5942d223 --line LINE_UID
    ./bin/plow-agents agents
    ```
 
 3. When its status is `running`, text the number shown by `./bin/plow-agents lines`. In your direct chat with Webby, say “Connect GitHub.” Webby gives you a code for [GitHub device login](https://github.com/login/device). After approving it, text “Check GitHub connection.” GitHub CLI's browser authorization has account-level OAuth scopes; Webby applies its approved-repository list when deciding what to edit.
 
 4. If you need a site, text “Create a website for my startup. Ask me only for its name, what it does, and where the main button should go. Open a pull request for review; don't publish it yet.” Webby will ask for the few details it cannot infer and create a GitHub-backed site draft. If you already have a website repository, say “Approve `OWNER/REPO` as my website repository,” then ask for a focused change. Review the PR before publishing. For a team workflow, ask Webby to create a trusted group with your teammates after you decide who should have access.
+
+Webby's default writing and visual-review capabilities use its Plow connection. Choosing a specific external writer or reviewer is optional: [connect that provider once](MODEL_CHOICE.md), then name it for a whole site or selected sections in your request.
 
 Webby's own [website](https://bubba311.github.io/webby-website-manager/) lives in this repository's `site/` folder, so it is also a real site Webby can edit. [PR #1](https://github.com/bubba311/webby-website-manager/pull/1) documents its first site change.
 

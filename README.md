@@ -34,11 +34,13 @@ Choose one writer for a whole site, or give different sections to different mode
 
 You can also choose a reader model to check what the page communicates: the offer, audience, next action, and evidence. That checks understanding of supplied content; actual search discovery and citations require separate observations. The model receipt records what ran, what the provider reported, and any failure. No provider is silently substituted.
 
+[PR #12](https://github.com/bubba311/webby-website-manager/pull/12) shows real Codex and Claude contributions to different sections of this site, followed by a reading check and editorial review. Screenshot reviews can use Webby's existing Plow vision connection or a selected, connected model; default visual review needs no extra sign-in.
+
 ## This is Webby's own website.
 
 ![Preview of Webby's editorial website, with the headline Built to win the agentic economy](docs/assets/webby-site-preview.png)
 
-Webby made its first real change to the site in [`site/`](site/). [PR #1](https://github.com/bubba311/webby-website-manager/pull/1) contains that change and the create and check workflows. [PR #2](https://github.com/bubba311/webby-website-manager/pull/2) contains the editorial redesign previewed above. The public site deploys from `main` after a reviewed merge.
+Webby made its first real change to the site in [`site/`](site/). [PR #1](https://github.com/bubba311/webby-website-manager/pull/1) contains that change and the create and check workflows. [PR #2](https://github.com/bubba311/webby-website-manager/pull/2) established the editorial direction; PR #12 adds the current positioning and model workflows. The public site deploys from `main` after a reviewed merge.
 
 ## Start with a text.
 
