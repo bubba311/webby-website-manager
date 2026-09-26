@@ -1,0 +1,7 @@
+.git
+.github
+plow-credentials
+.env
+.env.*
+node_modules
+*.log
