@@ -459,6 +459,22 @@ h1 em {
   background: #fff;
   min-width: 175px;
 }
+.closing-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 27px;
+}
+.text-link-light {
+  color: #fff;
+  font-weight: 750;
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.text-link-light:hover {
+  color: #b9c5ff;
+}
 .site-footer {
   min-height: 190px;
   display: flex;
