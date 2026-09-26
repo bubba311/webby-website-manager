@@ -369,6 +369,7 @@ def audit(url: str, allow_private: bool = False) -> dict:
                     ("Bingbot", "bingbot-access", "Bing Search crawler"),
                     ("OAI-SearchBot", "openai-search-access", "ChatGPT Search crawler"),
                     ("Claude-SearchBot", "claude-search-access", "Claude Search crawler"),
+                    ("PerplexityBot", "perplexity-search-access", "Perplexity Search crawler"),
                 ):
                     allowed, matched_rule = robots_decision(robots["text"], agent, page_url)
                     status = "verify" if allowed is None else "ok" if allowed else "issue"
