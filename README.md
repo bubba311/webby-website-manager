@@ -1,6 +1,36 @@
 # Webby Website Manager
 
-Webby is a multiplayer OpenClaw agent for startup websites. A teammate requests a change in Plow Chat; Webby makes it in an owner-approved GitHub repository, opens a pull request, checks the preview, and reports back. The site owner controls publishing. The image inherits Plow's OpenClaw starter, group chat, and Agent Index usage reporter.
+**Text a website change. Get a pull request. You decide when it ships.**
+
+[Website](https://bubba311.github.io/webby-website-manager/) · [A real change Webby made](https://github.com/bubba311/webby-website-manager/pull/1) · [Agent Index](https://aiworthusing.com/agent-index/webby-website-manager)
+
+Webby is a multiplayer OpenClaw agent for startup websites. A teammate requests a change in Plow Chat; Webby edits an owner-approved GitHub site on a branch, opens a pull request, and reports what it did. The site owner controls publishing. GitHub-backed sites work now; Wix, Webflow, and Framer integrations are not built yet.
+
+## Get your own Webby
+
+One-click installation is pending on the Agent Index. The cloud route below works now and does not require local Docker or a separate model key.
+
+1. Install the [Plow CLI](https://github.com/plow-pbc/plow-agents), sign in by text, and find an available phone line:
+
+   ```sh
+   git clone https://github.com/plow-pbc/plow-agents.git
+   cd plow-agents
+   ./bin/plow-agents login
+   ./bin/plow-agents lines
+   ```
+
+2. Replace `LINE_UID` with an available line ID from the previous command, then deploy the current Webby image:
+
+   ```sh
+   ./bin/plow-agents deploy ghcr.io/bubba311/webby-website-manager@sha256:3e7ac70d05931b8d915551cdf70a93c56a526076c76e6a26564520e8d856c40b --line LINE_UID
+   ./bin/plow-agents agents
+   ```
+
+3. When its status is `running`, text the number shown by `./bin/plow-agents lines`. In your direct chat with Webby, say: “Connect GitHub and approve `OWNER/REPO` as my website repository.” Webby gives you a code for [GitHub device login](https://github.com/login/device). After approving it, text “Check GitHub connection.” GitHub CLI's browser authorization has account-level OAuth scopes; Webby applies its approved-repository list when deciding what to edit.
+
+4. Ask for one focused change: “Update the homepage headline in `OWNER/REPO`, change only its website files, and open a pull request. Do not merge it.” Review the PR before publishing. For a team workflow, ask Webby to create a trusted group with your teammates after you decide who should have access.
+
+Webby's own [website](https://bubba311.github.io/webby-website-manager/) lives in this repository's `site/` folder, so it is also a real site Webby can edit. [PR #1](https://github.com/bubba311/webby-website-manager/pull/1) documents its first site change.
 
 ## What is here
 
@@ -9,10 +39,11 @@ Webby is a multiplayer OpenClaw agent for startup websites. A teammate requests 
 - `skills/webby-github/SKILL.md`: the first real website workflow.
 - `compose.yml`: local Plow development with a loopback dashboard.
 - `.github/workflows/image.yml`: remote Docker build for computers without Docker; publishing is a separate manual dispatch.
+- `.github/workflows/site.yml`: checks the static site's links and assets on pull requests.
 - `.github/workflows/pages.yml`: publishes site changes after a reviewed pull request is merged to `main`.
 - `site/`: Webby's own startup website, which is the first site to manage.
 
-## Connect and run locally
+## Develop locally
 
 You need Docker Engine and Compose 2.24+, the [Plow CLI](https://github.com/plow-pbc/plow-agents), and a Plow phone line. From this directory:
 
@@ -25,7 +56,7 @@ docker compose ps
 
 Text the line shown by `plow-agents lines`. The local dashboard is at `http://localhost:3001`; it is an owner-admin interface and should stay on loopback. The image uses Plow's model provider, so a separate model API key is not required for this route. To use GitHub locally, set `GH_TOKEN` in a private `.env` file or export it for Compose. Use a token scoped only to the selected website repositories.
 
-In an owner-only chat, ask Webby to connect GitHub and tell it which `OWNER/REPO` is the website. Webby returns a device-login code from `webby-github-login start`; approve it at `https://github.com/login/device`, then ask Webby to check the connection. Webby records approved repositories in `/var/lib/plow/webby-approved-repos`. Request a small change in a group chat to exercise the multiplayer workflow.
+Webby returns a device-login code from `webby-github-login start`; approve it at `https://github.com/login/device`, then ask Webby to check the connection. Webby records approved repositories in `/var/lib/plow/webby-approved-repos`. Request a small change in a group chat to exercise the multiplayer workflow.
 
 ## Build without local Docker
 
@@ -33,7 +64,7 @@ The GitHub Action validates the image on pushes and pull requests. A manual `wor
 
 For the hackathon, Webby's image sets `AGENT_ID=webby-website-manager`, so the inherited reporter registers and sends real usage to the [Agent Index](https://aiworthusing.com/agent-index/publish). Submission still needs a public MIT repository, a working image, a 60-second demo, and verification by the organizers. The submission deadline is September 28, 2026 at 11:59 p.m. PT.
 
-## First live test
+## Verify a new integration
 
 1. Connect GitHub in the owner-only Plow conversation. Do not send a token in chat.
 2. Approve one website repository, preferably a GitHub site that deploys previews for pull requests.

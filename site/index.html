@@ -3,214 +3,96 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f7f4ed" />
-    <meta
-      name="description"
-      content="Webby Website Manager turns startup website requests into reviewed GitHub pull requests."
-    />
-    <title>Webby — Website Manager for startup teams</title>
+    <meta name="theme-color" content="#f5f2ea" />
+    <meta name="description" content="Meet Webby: the website teammate you can text. Ask for a change, get a GitHub pull request, and publish when you're ready." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Webby — Text it. Webby builds it." />
+    <meta property="og:description" content="A website teammate for startup teams. Text a change, review the PR, and keep the final say." />
+    <meta property="og:url" content="https://bubba311.github.io/webby-website-manager/" />
+    <meta property="og:image" content="https://bubba311.github.io/webby-website-manager/social-card.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://bubba311.github.io/webby-website-manager/" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/dm-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <title>Webby — Your website teammate</title>
     <link rel="stylesheet" href="styles.css" />
+    <script src="site.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <div class="page-shell">
+    <div class="site-wrap">
+      <div class="announcement">
+        <span class="announcement-spark" aria-hidden="true">✳</span>
+        Webby helped build this website.
+        <a href="https://github.com/bubba311/webby-website-manager/pull/1">See the real pull request <span aria-hidden="true">↗</span></a>
+      </div>
+
       <header class="site-header">
         <a class="brand" href="#top" aria-label="Webby home">
-          <span class="brand-mark" aria-hidden="true">w<span>.</span></span>
-          <span>Webby</span>
+          <span class="brand-icon" aria-hidden="true">w<span>✳</span></span>
+          <span class="brand-name">webby<span class="brand-period">.</span></span>
         </a>
-        <nav aria-label="Main navigation">
+        <nav class="main-nav" aria-label="Main navigation">
+          <a href="#what-it-does">What it does</a>
           <a href="#how-it-works">How it works</a>
-          <a href="#built-for">Who it's for</a>
-          <a
-            class="header-link"
-            href="https://github.com/bubba311/webby-website-manager"
-            >View the project <span aria-hidden="true">↗</span></a
-          >
+          <a href="#proof">Proof</a>
         </nav>
+        <a class="nav-cta" href="#get-webby">Get Webby <span aria-hidden="true">↗</span></a>
       </header>
 
       <main id="main">
-        <section class="hero" id="top" aria-labelledby="hero-title">
+        <section class="hero content-width" id="top" aria-labelledby="hero-title">
           <div class="hero-copy">
-            <div class="eyebrow">
-              <span class="status-dot" aria-hidden="true"></span> A new teammate
-              for your website
-            </div>
-            <h1 id="hero-title">
-              Your website has a to-do list. <em>Give it Webby.</em>
-            </h1>
-            <p class="hero-description">
-              Ask for a change in chat. Webby updates your GitHub-backed site on
-              a branch, opens a pull request, and gives your team a clear place
-              to review before anything goes live.
-            </p>
+            <div class="eyebrow"><span class="eyebrow-icon" aria-hidden="true">✳</span> YOUR WEBSITE HAS A NEW TEAMMATE</div>
+            <h1 id="hero-title">Text it.<br /><span>Webby builds it.</span></h1>
+            <p class="hero-description">From “fix the headline” to a GitHub pull request your team can review. Webby keeps your website moving. You keep the final say.</p>
             <div class="hero-actions">
-              <a
-                class="button button-primary"
-                href="https://aiworthusing.com/agent-index/webby-website-manager"
-                >Try Webby <span aria-hidden="true">↗</span></a
-              >
-              <a class="text-link" href="#how-it-works"
-                >See how Webby works <span aria-hidden="true">↗</span></a
-              >
+              <a class="button button-dark" href="#get-webby">Get your Webby <span aria-hidden="true">↗</span></a>
+              <a class="under-link" href="#proof">See what Webby made <span aria-hidden="true">↗</span></a>
             </div>
-            <p class="hero-footnote">
-              GitHub websites first · Open source under MIT
-            </p>
+            <p class="hero-note"><span aria-hidden="true">●</span> Works with GitHub-backed sites today</p>
           </div>
-
-          <div
-            class="workflow-visual"
-            aria-label="Illustrative example of a website request becoming a pull request"
-          >
-            <div class="visual-heading">
-              <span>EXAMPLE WORKFLOW</span
-              ><span class="visual-sparkle" aria-hidden="true">✳</span>
+          <div class="hero-art" aria-label="Illustration based on Webby's real first pull request">
+            <div class="hero-art-grid" aria-hidden="true"></div>
+            <div class="art-orbit orbit-one" aria-hidden="true">✳</div>
+            <div class="art-orbit orbit-two" aria-hidden="true">✺</div>
+            <div class="art-label"><span class="art-label-dot"></span> BASED ON A REAL REQUEST <span>PR #1</span></div>
+            <div class="chat-window">
+              <div class="window-topline"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>team chat</span><span class="window-secure">OWNER APPROVED</span></div>
+              <div class="chat-row chat-row-owner"><span class="chat-avatar owner-avatar" aria-hidden="true">Y</span><div><span class="chat-name">You <small>request</small></span><p>Add a clear “Try Webby” link to our website. Open a PR; don’t merge it.</p></div></div>
+              <div class="chat-row chat-row-webby"><span class="chat-avatar webby-avatar" aria-hidden="true">w✳</span><div><span class="chat-name">Webby <small>response</small></span><p>Done. The change is on a branch and ready for your review.</p></div></div>
             </div>
-            <div class="message-card">
-              <div class="avatar avatar-founder" aria-hidden="true">F</div>
-              <div>
-                <div class="message-meta">
-                  Founder <span>in team chat</span>
-                </div>
-                <p>Can we make the homepage CTA clearer before launch?</p>
-              </div>
-            </div>
-            <div class="flow-connector">
-              <span></span><span class="flow-arrow" aria-hidden="true">↓</span>
-            </div>
-            <div class="message-card webby-message">
-              <div class="avatar avatar-webby" aria-hidden="true">w.</div>
-              <div>
-                <div class="message-meta">
-                  Webby <span>website manager</span>
-                </div>
-                <p>
-                  I updated the copy and opened a pull request. Review the
-                  change and preview before publishing.
-                </p>
-              </div>
-            </div>
-            <div class="pull-request-card">
-              <div class="pr-topline">
-                <span class="pr-icon" aria-hidden="true">⑂</span> Pull request
-                ready <span class="pr-check" aria-hidden="true">✓</span>
-              </div>
-              <strong>Make the homepage CTA clearer</strong>
-              <div class="pr-meta">
-                <span>Branch created</span><span>Checks reviewed</span
-                ><span>Ready for approval</span>
-              </div>
-            </div>
-            <div class="visual-caption">
-              A reviewable change. No surprise publish.
-            </div>
+            <a class="art-pr" href="https://github.com/bubba311/webby-website-manager/pull/1" aria-label="View Webby's real pull request number 1 on GitHub">
+              <div class="art-pr-top"><span class="pr-glyph" aria-hidden="true">⑂</span> GITHUB PULL REQUEST <span class="pr-open">REAL PR #1</span></div>
+              <strong>Add “Try Webby” link</strong>
+              <span class="pr-description">A real change to Webby’s own website</span>
+              <div class="pr-bottom"><span><i aria-hidden="true"></i> Human review before publishing</span><span>VIEW PR ↗</span></div>
+            </a>
+            <div class="art-sticker" aria-hidden="true">YOU<br />SHIP<br />IT<span>↗</span></div>
           </div>
         </section>
 
-        <section class="principle" aria-label="Webby principle">
-          <p>
-            The best website update is the one your team can
-            <strong>request, review, and trust.</strong>
-          </p>
-        </section>
+        <div class="ticker" aria-label="Webby's workflow"><div class="ticker-inner"><span>ONE TEXT</span><b>✳</b><span>ONE BRANCH</span><b>✳</b><span>ONE REVIEWABLE PR</span><b>✳</b><span>YOUR CALL</span></div></div>
 
-        <section
-          class="how-section"
-          id="how-it-works"
-          aria-labelledby="how-title"
-        >
-          <div class="section-heading">
-            <span class="section-kicker">HOW IT WORKS</span>
-            <h2 id="how-title">
-              From “we should fix that” to a change you can review.
-            </h2>
-          </div>
-          <div class="steps">
-            <article class="step">
-              <span class="step-number">01</span>
-              <h3>Ask in chat</h3>
-              <p>
-                Tell Webby what needs changing. Teammates can request updates
-                for a site the owner has approved.
-              </p>
-            </article>
-            <article class="step">
-              <span class="step-number">02</span>
-              <h3>Review the work</h3>
-              <p>
-                Webby makes a focused change on a branch, checks it, and opens a
-                GitHub pull request. If your site provides previews, Webby
-                shares the link.
-              </p>
-            </article>
-            <article class="step">
-              <span class="step-number">03</span>
-              <h3>Publish with confidence</h3>
-              <p>
-                The site owner decides when to merge. Webby checks the live page
-                after deployment and reports what actually shipped.
-              </p>
-            </article>
+        <section class="intro content-width" id="what-it-does" aria-labelledby="intro-title">
+          <div class="section-tag"><span>01</span> WHY WEBBY</div>
+          <div class="intro-grid"><h2 id="intro-title">A website manager that <em>actually makes the change.</em></h2><div class="intro-side"><p>Your team spots little improvements every day. Webby turns those requests into focused site edits, with a pull request you can inspect before they go live.</p><a class="arrow-link" href="https://github.com/bubba311/webby-website-manager/pull/1">Look at Webby’s first PR <span aria-hidden="true">↗</span></a></div></div>
+          <div class="feature-grid">
+            <article class="feature-card"><span class="feature-icon" aria-hidden="true">↗</span><span class="feature-count">01 / ASK</span><h3>Say it in chat.</h3><p>Send the task in plain language. Trusted teammates can request work on a site the owner has approved.</p></article>
+            <article class="feature-card feature-card-accent"><span class="feature-icon" aria-hidden="true">✳</span><span class="feature-count">02 / BUILD</span><h3>See the actual edit.</h3><p>Webby changes the site on a branch, runs the relevant checks, and opens a GitHub pull request.</p></article>
+            <article class="feature-card"><span class="feature-icon" aria-hidden="true">✓</span><span class="feature-count">03 / DECIDE</span><h3>Keep the final say.</h3><p>Review the diff. Merge only when you’re happy with it. Webby checks what reached the live page.</p></article>
           </div>
         </section>
 
-        <section class="fit-section" id="built-for" aria-labelledby="fit-title">
-          <div>
-            <span class="section-kicker">BUILT FOR STARTUP TEAMS</span>
-            <h2 id="fit-title">
-              A website that moves as fast as your company.
-            </h2>
-            <p>
-              Launches, copy fixes, new pages, and small improvements pile up.
-              Webby gives the whole team a way to request work without skipping
-              the review process.
-            </p>
-          </div>
-          <div class="fit-list" aria-label="Current scope">
-            <div>
-              <span class="fit-symbol" aria-hidden="true">↗</span
-              ><span>GitHub-backed marketing sites</span><strong>First</strong>
-            </div>
-            <div>
-              <span class="fit-symbol" aria-hidden="true">✓</span
-              ><span>Human-reviewed publishing</span><strong>Always</strong>
-            </div>
-            <div>
-              <span class="fit-symbol" aria-hidden="true">＋</span
-              ><span>More website platforms</span><strong>Planned</strong>
-            </div>
-          </div>
-        </section>
+        <section class="proof-band" id="proof" aria-labelledby="proof-title"><div class="content-width proof-grid"><div><div class="section-tag section-tag-light"><span>02</span> THE RECEIPT</div><h2 id="proof-title">Webby edits<br /><em>Webby’s website.</em></h2><p>This site is Webby’s first client. The agent took a request to add a “Try Webby” link, made the change in <code>site/</code>, and opened a real PR. You can inspect the request, code, and checks together.</p><a class="button button-lime" href="https://github.com/bubba311/webby-website-manager/pull/1">Inspect the real PR <span aria-hidden="true">↗</span></a></div><div class="proof-visual" aria-label="Summary of Webby's first pull request"><div class="proof-visual-top"><span class="mini-mark" aria-hidden="true">w✳</span><span>WEBBY / CHANGE LOG</span><span>NO. 001</span></div><div class="proof-visual-body"><span class="proof-status">● REAL PULL REQUEST</span><h3>Make “Try Webby” easier to find.</h3><p>Webby’s first commit added prominent Agent Index links to its own landing page.</p><div class="proof-file"><span>+</span> site/index.html</div><div class="proof-file"><span>+</span> site/styles.css</div></div><div class="proof-visual-footer"><span>HUMAN APPROVAL BEFORE PUBLISHING</span><span aria-hidden="true">↗</span></div></div></div></section>
 
-        <section class="closing" aria-labelledby="closing-title">
-          <span class="section-kicker">MEET YOUR WEBSITE MANAGER</span>
-          <h2 id="closing-title">A better way to keep the site moving.</h2>
-          <p>Webby is being built in the open on OpenClaw and Plow.</p>
-          <div class="closing-actions">
-            <a
-              class="button button-light"
-              href="https://aiworthusing.com/agent-index/webby-website-manager"
-              >Try Webby <span aria-hidden="true">↗</span></a
-            >
-            <a
-              class="text-link text-link-light"
-              href="https://github.com/bubba311/webby-website-manager"
-              >See the project <span aria-hidden="true">↗</span></a
-            >
-          </div>
-        </section>
+        <section class="how content-width" id="how-it-works" aria-labelledby="how-title"><div class="section-tag"><span>03</span> HOW IT WORKS</div><div class="how-header"><h2 id="how-title">Good work.<br /><em>No mystery.</em></h2><p>Webby handles the making. You see the work and decide what ships.</p></div><div class="how-steps"><article><span>01</span><h3>Give Webby a site</h3><p>Deploy your own Webby on Plow, connect GitHub with a browser code, and approve the repository it may edit.</p></article><article><span>02</span><h3>Ask for a change</h3><p>Text a specific request. Webby edits the approved website on a new branch and sends back a pull request.</p></article><article><span>03</span><h3>Review, then ship</h3><p>Inspect the diff and any available preview. After you approve and merge, Webby checks the live site.</p></article></div></section>
+
+        <section class="get-section content-width" id="get-webby" aria-labelledby="get-title"><div class="get-card"><div class="get-copy"><span class="get-kicker"><span aria-hidden="true">✳</span> EARLY ACCESS, OPEN SOURCE</span><h2 id="get-title">Ready for your own <em>Webby?</em></h2><p>Install it on your Plow line, connect one GitHub site, and give it a first task. The cloud setup works today; one-click install is being prepared.</p><div class="get-actions"><a class="button button-dark" href="https://github.com/bubba311/webby-website-manager#get-your-own-webby">Open the setup guide <span aria-hidden="true">↗</span></a><a class="under-link" href="https://aiworthusing.com/agent-index/webby-website-manager">Agent Index listing <span aria-hidden="true">↗</span></a></div></div><div class="first-task"><span class="first-task-label">YOUR FIRST TEXT TO WEBBY</span><p id="first-task-text">Update the homepage headline on my approved website. Open a pull request for review, but don’t merge it.</p><button class="copy-button" type="button" data-copy-target="first-task-text">Copy first task <span aria-hidden="true">↗</span></button><span class="first-task-foot">Works with GitHub-backed sites today.<br />Wix, Webflow, and Framer are next.</span></div></div></section>
       </main>
 
-      <footer class="site-footer">
-        <a class="brand footer-brand" href="#top"
-          ><span class="brand-mark" aria-hidden="true">w<span>.</span></span
-          ><span>Webby</span></a
-        >
-        <p>Website Manager for startup teams.</p>
-        <span>Built with OpenClaw + Plow · MIT licensed</span>
-      </footer>
+      <footer class="site-footer content-width"><div class="footer-main"><a class="brand" href="#top" aria-label="Webby home"><span class="brand-icon" aria-hidden="true">w<span>✳</span></span><span class="brand-name">webby<span class="brand-period">.</span></span></a><p>More done. Less website backlog.</p></div><div class="footer-links"><a href="https://github.com/bubba311/webby-website-manager">GitHub ↗</a><a href="https://aiworthusing.com/agent-index/webby-website-manager">Agent Index ↗</a><a href="#get-webby">Get Webby ↑</a></div><div class="footer-bottom"><span>Built with OpenClaw + Plow · MIT licensed</span><span>Made for sites that don’t sit still.</span></div></footer>
     </div>
   </body>
 </html>
