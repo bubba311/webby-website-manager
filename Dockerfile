@@ -10,7 +10,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && install -d -m 0700 -o node -g node /var/lib/plow/gh /var/lib/plow/sites
 
-RUN npm install --global @openai/codex@0.157.1 @anthropic-ai/claude-code@2.1.281 \
+RUN npm install --global --include=optional --allow-scripts=@anthropic-ai/claude-code @openai/codex@0.157.1 @anthropic-ai/claude-code@2.1.281 \
  && npm cache clean --force
 
 RUN npm install --prefix /opt/webby/browser --no-audit --no-fund --save-exact playwright@1.63.0 \

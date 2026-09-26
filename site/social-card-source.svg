@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
-  <title id="title">Webby — Look good. Be found.</title>
-  <desc id="description">An editorial Webby card in warm paper, black and vermilion. Webby creates, updates and checks websites that are beautiful for people and clear to search and AI agents.</desc>
+  <title id="title">Webby — Built to win the agentic economy.</title>
+  <desc id="description">An editorial Webby card in warm paper, black and vermilion. Beautiful websites with design, discovery, and agent access built in.</desc>
 
   <rect width="1200" height="630" fill="#f4f0e8"/>
   <rect x="22.5" y="22.5" width="1155" height="585" fill="none" stroke="#181816" stroke-width="1"/>
@@ -15,11 +15,12 @@
   <line x1="58" y1="116.5" x2="1143" y2="116.5" stroke="#181816" stroke-width="1"/>
 
   <!-- Large, deliberately simple type keeps the card legible at feed size. -->
-  <text x="55" y="292" font-family="Arial, Helvetica, sans-serif" font-size="140" font-weight="700" letter-spacing="-10" fill="#181816">Look good.</text>
-  <text x="59" y="431" font-family="Georgia, 'Times New Roman', serif" font-size="133" font-style="italic" letter-spacing="-6" fill="#e74c34">Be found.</text>
-  <line x1="61" y1="459" x2="722" y2="459" stroke="#181816" stroke-width="1"/>
-  <text x="59" y="504" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" letter-spacing="-0.6" fill="#181816">Create. Update. Check.</text>
-  <text x="59" y="535" font-family="Arial, Helvetica, sans-serif" font-size="17.5" fill="#3d3d39">Beautiful for people. Clear to search and AI agents.</text>
+  <text x="55" y="237" font-family="Arial, Helvetica, sans-serif" font-size="110" font-weight="700" letter-spacing="-6.5" fill="#181816">Built to win</text>
+  <text x="55" y="342" font-family="Arial, Helvetica, sans-serif" font-size="110" font-weight="700" letter-spacing="-6.5" fill="#181816">the agentic</text>
+  <text x="59" y="455" font-family="Georgia, 'Times New Roman', serif" font-size="126" font-style="italic" letter-spacing="-5" fill="#e74c34">economy.</text>
+  <line x1="61" y1="482" x2="722" y2="482" stroke="#181816" stroke-width="1"/>
+  <text x="59" y="523" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" letter-spacing="-0.4" fill="#181816">Beautiful websites. Built for what comes next.</text>
+  <text x="59" y="548" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#3d3d39">Design, discovery, and agent access. Built in.</text>
 
   <!-- A site is represented as a page in progress, with a visible path through it. -->
   <circle cx="1061" cy="267" r="117" fill="#e74c34"/>

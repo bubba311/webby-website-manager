@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://bubba311.github.io/webby-website-manager/"><img src="site/social-card.png" alt="Webby: Look good. Be found. Create, update, and check websites." width="960" /></a>
+  <a href="https://bubba311.github.io/webby-website-manager/"><img src="site/social-card.png" alt="Webby: Built to win the agentic economy. Design, discovery, and agent access built in." width="960" /></a>
 </p>
 
 # Webby. Your website teammate.
@@ -36,7 +36,7 @@ You can also choose a reader model to check what the page communicates: the offe
 
 ## This is Webby's own website.
 
-![Preview of Webby's editorial website, with the headline Make a site worth finding](docs/assets/webby-site-preview.png)
+![Preview of Webby's editorial website, with the headline Built to win the agentic economy](docs/assets/webby-site-preview.png)
 
 Webby made its first real change to the site in [`site/`](site/). [PR #1](https://github.com/bubba311/webby-website-manager/pull/1) contains that change and the create and check workflows. [PR #2](https://github.com/bubba311/webby-website-manager/pull/2) contains the editorial redesign previewed above. The public site deploys from `main` after a reviewed merge.
 

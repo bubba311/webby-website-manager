@@ -225,7 +225,8 @@ async function render({ url: raw, output: out, allowLoopback = false }) {
         const height = Math.min(view.measurements.documentHeight, 16000);
         view.screenshots = { viewport: `${label}-viewport.png`, page: `${label}-page.png` };
         await page.screenshot({ path: path.join(output, view.screenshots.viewport), timeout: 10000 });
-        await page.screenshot({ path: path.join(output, view.screenshots.page), clip: { x: 0, y: 0, width: spec.width, height }, timeout: 10000 });
+        await page.screenshot({ path: path.join(output, view.screenshots.page), fullPage: true,
+          clip: { x: 0, y: 0, width: spec.width, height }, timeout: 10000 });
         view.pageCaptureTruncated = view.measurements.documentHeight > height;
         if (page.locator('body').ariaSnapshot) {
           view.accessibilitySnapshot = `${label}-accessibility.txt`;

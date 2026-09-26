@@ -61,7 +61,7 @@ test('real browser captures responsive evidence and blocks private resources inc
       if (req.url === '/favicon.ico') { res.writeHead(204); res.end(); return; }
       res.setHeader('content-type', 'text/html');
       res.end(`<!doctype html><html lang="en"><head><title>Rendered fixture</title><style>
-        body{font:18px sans-serif;margin:16px}#wide{width:500px}button{min-height:44px}
+        body{font:18px sans-serif;margin:16px;min-height:1800px}#wide{width:500px}button{min-height:44px}
         button:focus{outline:3px solid blue}@media(min-width:700px){#wide{width:auto}}
         </style></head><body><h1>Useful website</h1><p id="wide">A deliberate narrow-screen overflow.</p>
         <span hidden>HIDDEN_FIXTURE_TEXT</span><button>Start a project</button>
@@ -88,6 +88,9 @@ test('real browser captures responsive evidence and blocks private resources inc
         assert.deepEqual(view.errors, []);
         assert.equal(path.extname(view.accessibilitySnapshot), '.txt', 'snapshot can enter the model review as plain text');
         assert.equal(fs.readFileSync(path.join(report.output, view.screenshots.viewport)).subarray(1, 4).toString(), 'PNG');
+        const pageImage = fs.readFileSync(path.join(report.output, view.screenshots.page));
+        assert.equal(pageImage.readUInt32BE(16), view.width);
+        assert.equal(pageImage.readUInt32BE(20), Math.min(view.measurements.documentHeight, 16000), 'page capture includes content below the viewport');
         assert.match(fs.readFileSync(path.join(report.output, view.accessibilitySnapshot), 'utf8'), /Start a project/);
       }
     } finally {
