@@ -22,7 +22,7 @@ One-click installation is pending on the Agent Index. The cloud route below work
 2. Replace `LINE_UID` with an available line ID from the previous command, then deploy the current Webby image:
 
    ```sh
-   ./bin/plow-agents deploy ghcr.io/bubba311/webby-website-manager@sha256:3e7ac70d05931b8d915551cdf70a93c56a526076c76e6a26564520e8d856c40b --line LINE_UID
+   ./bin/plow-agents deploy ghcr.io/bubba311/webby-website-manager@sha256:62196fcff2f388243bdfbeefd736958168dea181e528cd9f79f39796346c90b5 --line LINE_UID
    ./bin/plow-agents agents
    ```
 
