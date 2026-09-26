@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://bubba311.github.io/webby-website-manager/sitemap.xml
