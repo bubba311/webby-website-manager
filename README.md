@@ -60,6 +60,8 @@ It reports observations and checks that need a browser or account access. It doe
 
 **Works with GitHub-backed websites today.** Wix, Webflow, and Framer integrations are planned. Webby does not claim to edit those builders yet.
 
+**Want to choose the coding agent?** An [optional local companion](docs/MODEL_CHOICE.md) can assign Codex or Claude Code to a whole site or named files and return a patch for Webby's review workflow. It uses your own subscription connection. Hosted Webby can prepare the assignment, but it does not run those coding agents yet.
+
 <details>
 <summary><strong>Build, run, and verify Webby locally</strong></summary>
 
