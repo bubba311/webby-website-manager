@@ -4,9 +4,9 @@
 
 # Webby. Your website teammate.
 
-**Beautiful for people. Clear to search and AI agents.**
+**A beautiful website, with findability built in.**
 
-Text your idea. Webby creates and updates a site, then checks the access, content, and controls that help search and AI agents find their way through it. You decide what ships.
+Text your idea. Webby creates and updates a distinctive site, taking care of the readable structure, page details, links, and actions that help people, search engines, and AI agents find and use it. You do not need to learn those mechanics or write a separate brief. You decide what ships.
 
 [Explore the website](https://bubba311.github.io/webby-website-manager/) · [See the real pull request](https://github.com/bubba311/webby-website-manager/pull/1) · [Get started](docs/GETTING_STARTED.md) · [Agent Index](https://aiworthusing.com/agent-index/webby-website-manager)
 
@@ -14,19 +14,23 @@ Text your idea. Webby creates and updates a site, then checks the access, conten
 
 ## One conversation. Three useful jobs.
 
-**01 / CREATE** — Give Webby a short startup brief. It drafts a visually distinct, GitHub-backed site with clear pages and actions.
+**01 / CREATE** — Give Webby a short startup brief. It drafts a visually distinct, GitHub-backed site with clear pages and actions, then checks the draft before review.
 
-**02 / UPDATE** — Ask for a new page, a sharper headline, or a launch detail. Webby makes the change on a branch.
+**02 / UPDATE** — Ask for a new page, a sharper headline, or a launch detail. Webby makes the change on a branch and keeps the page understandable and usable.
 
 **03 / CHECK** — Give Webby a live URL. It checks crawl access, readable content, and labeled controls, then shows the evidence and a practical fix.
 
 For code changes, Webby opens a pull request. An audit starts with a report; Webby edits only when you ask it to. The owner reviews and publishes the work.
 
+### The quiet work comes standard.
+
+Webby considers the whole visitor path while it builds: a page with a meaningful title and description, visible answers to what the company does, links that lead somewhere real, and controls people can understand. Its draft checks catch common structural and link problems before a pull request. For a published site, ask Webby for a deeper read-only check of crawl access, content, and actions; it shows evidence and fixes without a mystery score. No extra configuration is required for the draft checks.
+
 ## This is Webby's own website.
 
 ![Preview of Webby's editorial website, with the headline Make a site worth finding](docs/assets/webby-site-preview.png)
 
-Webby made its first real change to the site in [`site/`](site/). [PR #1](https://github.com/bubba311/webby-website-manager/pull/1) contains that change, the redesign previewed above, and the create and check workflows. The public site deploys from `main` after a reviewed merge.
+Webby made its first real change to the site in [`site/`](site/). [PR #1](https://github.com/bubba311/webby-website-manager/pull/1) contains that change and the create and check workflows. [PR #2](https://github.com/bubba311/webby-website-manager/pull/2) contains the editorial redesign previewed above. The public site deploys from `main` after a reviewed merge.
 
 ## Start with a text.
 
