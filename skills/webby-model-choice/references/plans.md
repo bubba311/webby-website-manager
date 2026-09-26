@@ -50,6 +50,40 @@ Example plan (replace model placeholders and use the real paths, facts, and dest
 
 Omit `section` to draft a whole file. Enumerate files to cover a whole site. A review job never creates a source replacement. Set `allow_model_alias: true` only when the owner intentionally selected a provider alias or documented snapshot mapping; otherwise a reported different model causes rejection. Receipts distinguish the requested model from provider-reported evidence. Codex may not report its actual served model, so do not invent one.
 
+## Review actual screenshots
+
+When an owner selects a visual reviewer, use a connected model that supports image input through that interface. Default reviews may use the host's already configured image-inference route without a new account connection; this plan is for the selected-model runner. Render the proposed site first, then place the captured visible text and screenshots in one artifact directory. Use that directory as `--repo`, with the plan and new output directory outside it:
+
+```json
+{
+  "version": 1,
+  "brief": "Review the captured page design.",
+  "context_files": ["1440-accessibility.txt", "375-text.txt"],
+  "jobs": [{
+    "id": "visual-review",
+    "operation": "review",
+    "provider": "CONNECTED_PROFILE",
+    "model": "SELECTED_VISION_MODEL",
+    "path": "1440-text.txt",
+    "images": ["1440-viewport.png", "375-viewport.png"],
+    "task": "Inspect the actual screenshots for hierarchy, type, spacing, alignment, contrast, and clipping. Give concrete locations and useful improvements, without inventing defects. Keep text evidence as exact quotes from the primary visible text. State which interactions remain untested.",
+    "max_output_tokens": 2048,
+    "timeout_seconds": 120
+  }]
+}
+```
+
+```sh
+webby-model-draft validate --config CONFIG --plan PLAN --repo CAPTURE_DIRECTORY
+webby-model-draft run --config CONFIG --plan PLAN --repo CAPTURE_DIRECTORY --output NEW_PRIVATE_DIRECTORY
+```
+
+Images are review-only: at most four distinct PNG/JPEG paths, 4 MB per file and 8 MB combined, no side above 8192 pixels and no image above 16 million pixels. Use viewport captures or bounded detail captures for long pages. Paths stay inside the explicit capture root; hidden files, credential-like names, and symlinks are rejected. Screenshots can contain private information even when their filenames look ordinary, so capture only the intended page. The runner checks file structure and dimensions, then sends the validated bytes using the provider's native image input. It does not fetch image URLs or give the selected model tools. Unsupported images/models fail without a text-only substitute. `review_proposed` cannot be combined with images because an unrendered source proposal has no matching pixels.
+
+Image reviews include explicitly selected `context_files` as supplemental capture data. Text-only comprehension reviews omit brief/context to avoid feeding the desired answer to the reader. Text evidence must always quote the job's primary `path`; screenshot observations belong in `visual_observations`.
+
+An accepted image review requires `image_access: "viewed"` and at least one location-specific observation for every attachment. Each observation has `image`, `location`, `observation`, and `recommendation`. The receipt records image path, type, dimensions, byte count, SHA-256, and `image_transport`, alongside requested/reported model and usage. Provider resizing/tokenization may affect perception; image access is model-reported, so assess the observations against the actual captures. Changed source or screenshot bytes invalidate the run. A successful result evaluates those captured states and does not establish interaction behavior, contrast compliance, live search performance, or a guaranteed design quality score.
+
 ## Accepting output
 
 The output directory contains `receipt.json`, `changes.patch`, and proposed source files when the plan succeeds. Review jobs add structured findings to the receipt. Validate the exact artifact paths reported by the program; do not assume a patch exists after failure. A failed plan can retain completed-job receipts for diagnosis but must not be applied as a completed plan. Provider refusals, truncation, missing credentials, boundary violations, and unexpected model IDs are actionable failures.

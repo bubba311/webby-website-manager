@@ -1,11 +1,13 @@
 ---
 name: webby-model-choice
-description: Use an owner-selected model to draft a whole website file or specific sections, or check how a selected reader model understands page content, then integrate reviewed changes.
+description: Use an owner-selected model to draft website files or sections, check page comprehension, or review actual screenshots with a vision-capable model, then integrate reviewed changes.
 ---
 
 # Choose the models that work on a website
 
 Use this when the owner names a writing model, assigns different parts to different models, or asks how a particular model reads a page. Keep the request conversational: infer file and section boundaries from the approved repository. Use `webby-github` for repository access and publication, `webby-create` for the visual direction, and `webby-audit` for page quality and evidence. A chosen writer is a creative contributor; its authorship does not establish that a search service will find, cite, or recommend the result.
+
+For aesthetic review, inspect actual rendered pixels. If Webby's default model cannot view images, the host's configured image-inference route can perform the default review without an extra account connection; use `webby-create`'s rendered-review reference for that route. When the owner selects another reviewer, route the screenshots through a connected vision-capable model using the image-review plan below. Keep the requested model choice explicit, and report unavailable image input rather than silently substituting a text-only verdict.
 
 ## Connect once
 
@@ -24,5 +26,7 @@ Assign an explicit file to each job. For sections within the same file, use uniq
 Validate the plan before spending: `webby-model-draft validate --config CONFIG --plan PLAN --repo REPO`. Run with `webby-model-draft run --config CONFIG --plan PLAN --repo REPO --output NEW_PRIVATE_DIRECTORY`. These calls generate bounded source proposals; the selected models receive no shell, browser, or repository-editing tools. The original checkout stays unchanged. Use a fresh output directory for each attempt. Direct API jobs have output-token and time limits; CLI jobs have time/output-byte limits and provider-specific controls, with the differences recorded. Read a failed receipt before retrying; completed jobs can have consumed usage even if the entire plan failed. Do not automatically repeat a paid plan or enlarge its limits.
 
 Read the receipt, proposed files, and patch. Confirm the requested provider/model, actual model when reported, complete output, correct section boundaries, and agreement with the owner's facts. Check the assembled page for inconsistent voice, repeated claims, missing transitions, broken component syntax, and visual drift. Review a comprehension result against the supplied facts and its quoted evidence; a model's opinion is not a factual verdict. A supplied-text check does not test public search retrieval, live citations, or actual browser task completion.
+
+For a selected-model visual review, render the current proposal first and use the capture directory as `--repo`. A review job's `path` supplies visible text and its `images` supply explicit PNG/JPEG screenshots from that same capture state; see [screenshot plans](references/plans.md#review-actual-screenshots). Keep optional capture context explicit. Verify the receipt's image hashes and the model's image_access and location-specific observations before calling this a visual review. Inspecting captured pixels does not prove that buttons or browser tasks work; perform the relevant interactions separately.
 
 Only accept a `review_ready` result. Check the patch against the current source with `git apply --check` before applying it to the approved working branch; if source changed since drafting, reassess the diff rather than forcing it. Run the project's build/checks, the applicable site audit, and rendered review after integration. Open one coherent pull request with a concise model-contribution receipt, evidence, and preview when available. Follow existing owner approval for merge/publish and verify the live result. The user should request the outcome; Webby should handle the plan and integration mechanics.

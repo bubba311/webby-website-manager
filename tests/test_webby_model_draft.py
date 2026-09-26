@@ -346,6 +346,20 @@ class AdapterTest(unittest.TestCase):
 @unittest.skipUnless(shutil.which('codex'), 'Codex CLI is not installed')
 class InstalledCodexIsolationTest(unittest.TestCase):
     def test_actual_request_has_no_tools_with_no_real_credentials(self):
+        self.capture_request()
+
+    def test_actual_screenshot_request_has_native_image_and_no_tools(self):
+        png = runpy.run_path(str(Path(__file__).with_name('test_webby_model_vision.py')))['png']
+        raw = png()
+        images = [{'path': 'mobile.png', **M['image_info'](raw), 'data': raw}]
+        captured = self.capture_request(images)
+        blocks = [block for item in captured['input'] for block in item.get('content', [])
+                  if isinstance(block, dict) and block.get('type') == 'input_image']
+        self.assertEqual(len(blocks), 1)
+        import base64
+        self.assertEqual(base64.b64decode(blocks[0]['image_url'].split(',', 1)[1]), raw)
+
+    def capture_request(self, images=()):
         captured = []
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_POST(self):
@@ -380,11 +394,13 @@ class InstalledCodexIsolationTest(unittest.TestCase):
                 return real_command(argv, environment, cwd, min(timeout, 15), input_text)
             with patch.dict(G, {'command': local_command, 'clean_env': lambda profile: environment}):
                 with self.assertRaises(Error):
-                    M['cli_call']({'kind': 'codex'}, {'model': model, 'timeout_seconds': 15, 'max_output_tokens': 256},
-                                  'Return only {"content":"offline"}', M['DRAFT_SCHEMA'], Path(directory))
+                    M['cli_call']({'kind': 'codex'}, {'model': model, 'timeout_seconds': 15, 'max_output_tokens': 256, '_images': images},
+                                  'Review the fixture' if images else 'Return only {"content":"offline"}',
+                                  M['VISUAL_REVIEW_SCHEMA'] if images else M['DRAFT_SCHEMA'], Path(directory))
         self.assertEqual(len(captured), 1)
         self.assertEqual(captured[0]['model'], model)
         self.assertEqual(captured[0].get('tools', []), [])
+        return captured[0]
 
 
 if __name__ == '__main__': unittest.main()
