@@ -8,7 +8,7 @@
 
 Text your idea. Webby creates and updates a distinctive site, taking care of the readable structure, page details, links, and actions that help people, search engines, and AI agents find and use it. You do not need to learn those mechanics or write a separate brief. You decide what ships.
 
-[Explore the website](https://bubba311.github.io/webby-website-manager/) · [See the real pull request](https://github.com/bubba311/webby-website-manager/pull/1) · [Get started](docs/GETTING_STARTED.md) · [Agent Index](https://aiworthusing.com/agent-index/webby-website-manager)
+[Watch the 76-second real-work demo](https://github.com/bubba311/webby-website-manager/releases/tag/webby-demo-2026-09-26) · [Explore the website](https://bubba311.github.io/webby-website-manager/) · [See the real pull request](https://github.com/bubba311/webby-website-manager/pull/1) · [Get started](docs/GETTING_STARTED.md) · [Agent Index](https://aiworthusing.com/agent-index/webby-website-manager)
 
 ---
 
