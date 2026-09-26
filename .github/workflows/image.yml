@@ -18,10 +18,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Test site audit
-        run: python3 -m unittest discover -s tests -p 'test_webby_site_audit.py'
+      - name: Test site audit and model workflows
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Test starter preflight
         run: python3 -m unittest discover -s starter-site/tests -p 'test_check_site.py'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test rendered-review policies
+        run: node --test tests/test_webby_render_check.cjs
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         if: github.event_name == 'workflow_dispatch' && inputs.publish
@@ -36,7 +41,17 @@ jobs:
           load: ${{ github.event_name != 'workflow_dispatch' || !inputs.publish }}
           tags: ghcr.io/${{ github.repository }}:webby-${{ github.sha }}
           platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       - name: Smoke check image
         if: github.event_name != 'workflow_dispatch' || !inputs.publish
         run: |
-          docker run --rm --entrypoint sh ghcr.io/${{ github.repository }}:webby-${{ github.sha }} -c 'command -v gh && command -v git && command -v python3 && command -v webby-github-login && webby-site-audit --help >/dev/null && test -s /opt/plow/prompt/AGENTS.md && test -s /opt/plow/skills/webby-github/SKILL.md && test -s /opt/plow/skills/webby-audit/SKILL.md && test -s /opt/plow/skills/webby-create/SKILL.md && test -s /opt/webby/starter-site/site/index.html'
+          docker run --rm --entrypoint sh ghcr.io/${{ github.repository }}:webby-${{ github.sha }} -c 'command -v gh && command -v git && command -v python3 && command -v webby-github-login && webby-site-audit --help >/dev/null && webby-model-draft --help >/dev/null && webby-model-connect --help >/dev/null && codex --version && claude --version && test -s /opt/plow/prompt/AGENTS.md && test -s /opt/plow/skills/webby-github/SKILL.md && test -s /opt/plow/skills/webby-audit/references/measurement.md && test -s /opt/plow/skills/webby-create/references/rendered-review.md && test -s /opt/plow/skills/webby-model-choice/SKILL.md && test -s /opt/webby/starter-site/site/index.html'
+      - name: Test actual image browser
+        if: github.event_name != 'workflow_dispatch' || !inputs.publish
+        run: |
+          docker run --rm --entrypoint node -e WEBBY_RENDER_BROWSER_TEST=1 -v "$PWD:/work:ro" -w /work ghcr.io/${{ github.repository }}:webby-${{ github.sha }} --test tests/test_webby_render_check.cjs
+      - name: Test installed model CLI isolation
+        if: github.event_name != 'workflow_dispatch' || !inputs.publish
+        run: |
+          docker run --rm --entrypoint python3 -v "$PWD:/work:ro" -w /work ghcr.io/${{ github.repository }}:webby-${{ github.sha }} -m unittest discover -s tests -p 'test_webby_model_draft.py'
