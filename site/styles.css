@@ -48,7 +48,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--signal); outlin
 .masthead-note a span { font-size: 14px; margin-left: 6px; }
 .site-header { min-height: 83px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: center; border-bottom: 1px solid var(--ink); }
 .wordmark, .footer-wordmark { display: inline-flex; align-items: baseline; width: fit-content; font: 700 37px/.9 "Space Grotesk", sans-serif; letter-spacing: -.105em; text-decoration: none; }
-.wordmark span, .footer-wordmark span { color: var(--signal); font-size: 20px; line-height: 0; transform: translate(5px, -13px); letter-spacing: 0; }
+.wordmark .brand-stop, .footer-wordmark .brand-stop { flex: none; width: .2em; height: .2em; margin-left: .16em; background: var(--signal); transform: translateY(-.48em); }
 .main-nav { display: flex; align-items: center; gap: clamp(17px, 2.2vw, 38px); }
 .main-nav a { white-space: nowrap; text-decoration: none; font-size: 12px; font-weight: 700; }
 .main-nav a:hover, .footer-bottom a:hover { color: var(--signal-dark); }
@@ -82,7 +82,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--signal); outlin
 .plate-circle { z-index: 1; width: clamp(140px, 17vw, 250px); aspect-ratio: 1; display: grid; place-items: center; border: 1px solid var(--ink); border-radius: 50%; margin-left: 9%; transform: rotate(-20deg); }
 .plate-circle::before, .plate-circle::after { content: ""; position: absolute; width: 126%; height: 1px; background: var(--ink); }
 .plate-circle::after { transform: rotate(90deg); }
-.plate-circle span { z-index: 1; display: grid; place-items: center; width: 44%; aspect-ratio: 1; background: var(--ink); color: var(--signal); border-radius: 50%; font: 700 clamp(35px, 5vw, 75px)/1 "Space Grotesk", sans-serif; }
+.plate-circle span { position: relative; z-index: 1; display: grid; place-items: center; width: 44%; aspect-ratio: 1; background: var(--ink); color: var(--light); border-radius: 50%; font: 700 clamp(35px, 5vw, 75px)/1 "Space Grotesk", sans-serif; }
+.plate-circle span::after { content: ""; position: absolute; right: .08em; bottom: .24em; width: .16em; height: .16em; background: var(--signal); }
 .plate-main p { z-index: 2; margin-right: 1%; font: 700 clamp(38px, 5vw, 75px)/.98 "Space Grotesk", sans-serif; letter-spacing: -.075em; text-align: right; }
 .plate-main p em { font-family: Georgia, serif; font-weight: 400; }
 .plate-bottom { display: flex; justify-content: space-between; align-items: center; gap: 20px; border-top: 1px solid var(--ink); min-height: 45px; padding-inline: 21px; font: 700 10px/1 "Space Grotesk", sans-serif; letter-spacing: .12em; }
@@ -107,7 +108,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--signal); outlin
 .find-top h2 { font-size: clamp(78px, 10vw, 150px); line-height: .82; letter-spacing: -.1em; }
 .find-top h2 em { color: #f08566; font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: -.09em; }
 .find-aside { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 12px; }
-.find-symbol { color: #ee7a5c; font: 400 clamp(110px, 14vw, 210px)/.7 "Space Grotesk", sans-serif; }
+.find-symbol { position: relative; display: inline-block; width: fit-content; color: #ee7a5c; font: 700 clamp(110px, 14vw, 210px)/.7 "Space Grotesk", sans-serif; letter-spacing: -.1em; }
+.find-symbol::after { content: ""; position: absolute; right: -.12em; bottom: .04em; width: .17em; height: .17em; background: #ee7a5c; }
 .find-aside p { max-width: 355px; margin-top: 50px; color: #dbddd3; font-size: clamp(17px, 1.6vw, 21px); line-height: 1.48; }
 .find-triptych { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--night-rule); margin-top: clamp(105px, 11vw, 160px); }
 .find-triptych article { min-height: 310px; padding: 26px 38px 24px 0; border-right: 1px solid var(--night-rule); }
@@ -163,7 +165,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--signal); outlin
 .site-footer { padding-block: 55px 28px; }
 .footer-top { display: flex; justify-content: space-between; align-items: start; gap: 40px; }
 .footer-wordmark { font-size: clamp(76px, 12vw, 170px); }
-.footer-wordmark span { font-size: .4em; transform: translate(9px, -1.25em); }
+.footer-wordmark .brand-stop { width: .15em; height: .15em; margin-left: .1em; transform: translateY(-.38em); }
 .footer-top p { margin: 17px 4px 0 0; font-size: clamp(18px, 2vw, 26px); line-height: 1.25; letter-spacing: -.035em; }
 .footer-bottom { display: flex; justify-content: space-between; gap: 25px; margin-top: 62px; border-top: 1px solid var(--ink); padding-top: 17px; font: 700 10px/1.3 "Space Grotesk", sans-serif; letter-spacing: .11em; }
 .footer-bottom > div { display: flex; gap: 23px; }
@@ -209,7 +211,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--signal); outlin
   .masthead-note a { max-width: 175px; text-align: right; line-height: 1.2; }
   .site-header { min-height: 69px; }
   .wordmark { font-size: 31px; }
-  .wordmark span { font-size: 17px; transform: translate(4px, -12px); }
+  .wordmark .brand-stop { width: .2em; height: .2em; }
   .header-cta { gap: 12px; padding: 11px 11px 11px 13px; }
   .hero { padding-top: 22px; }
   .hero-meta, .section-head { font-size: 10px; letter-spacing: .08em; }
