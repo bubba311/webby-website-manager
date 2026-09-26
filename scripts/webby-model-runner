@@ -1,0 +1,276 @@
+#!/usr/bin/env python3
+"""Run selected coding agents in a separate, credential-limited Docker container.
+
+The host checkout is never mounted. Each plan runs on a disposable local clone and
+produces a patch for Webby to inspect and apply through its ordinary PR workflow.
+"""
+
+from __future__ import annotations
+
+import argparse
+import fnmatch
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import subprocess
+import sys
+import tempfile
+
+
+IMAGE = "webby-model-runner:local"
+AGENTS = {"codex", "claude"}
+TIMEOUT_SECONDS = 30 * 60
+
+
+class RunnerError(Exception):
+    pass
+
+
+def command(args: list[str], *, cwd: Path | None = None, capture: bool = True,
+            timeout: int = 30, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    if args[0] == "git":
+        # A website's .gitattributes must not invoke a host-configured filter.
+        env.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1",
+                   GIT_TERMINAL_PROMPT="0")
+    try:
+        result = subprocess.run(args, cwd=cwd, input=input_text, text=True,
+                                capture_output=capture, timeout=timeout, check=False, env=env)
+    except FileNotFoundError as error:
+        raise RunnerError(f"Missing required command: {args[0]}") from error
+    except subprocess.TimeoutExpired as error:
+        raise RunnerError(f"Command timed out: {args[0]}") from error
+    if result.returncode:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise RunnerError(f"{args[0]} exited with {result.returncode}: {detail[:500]}")
+    return result
+
+
+def validate_scope(raw: object) -> list[str]:
+    if not isinstance(raw, list) or not raw or not all(isinstance(item, str) for item in raw):
+        raise RunnerError("Each step needs a nonempty paths list.")
+    scope = []
+    for pattern in raw:
+        path = PurePosixPath(pattern)
+        if (not pattern or pattern.startswith("/") or "\\" in pattern or
+                any(part in {"", ".", "..", ".git"} for part in path.parts) or
+                pattern.startswith("~") or "[" in pattern or "]" in pattern):
+            raise RunnerError(f"Unsafe path pattern: {pattern}")
+        scope.append(pattern)
+    return scope
+
+
+def load_plan(path: Path) -> dict:
+    try:
+        plan = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise RunnerError(f"Cannot read plan: {error}") from error
+    if not isinstance(plan, dict) or not isinstance(plan.get("brief"), str) or not plan["brief"].strip():
+        raise RunnerError("Plan needs a nonempty brief.")
+    steps = plan.get("steps")
+    if not isinstance(steps, list) or not steps:
+        raise RunnerError("Plan needs at least one step.")
+    if len(steps) > 8:
+        raise RunnerError("Keep a plan to eight steps or fewer.")
+    for index, step in enumerate(steps, 1):
+        if not isinstance(step, dict) or step.get("agent") not in AGENTS:
+            raise RunnerError(f"Step {index}: agent must be codex or claude.")
+        if not isinstance(step.get("task"), str) or not step["task"].strip():
+            raise RunnerError(f"Step {index}: task must be nonempty.")
+        step["paths"] = validate_scope(step.get("paths"))
+    return plan
+
+
+def matches_scope(path: str, scope: list[str]) -> bool:
+    return any(fnmatch.fnmatchcase(path, pattern) or
+               (pattern.endswith("/**") and path == pattern[:-3])
+               for pattern in scope)
+
+
+def private_home(state_dir: Path, agent: str) -> Path:
+    home = state_dir.expanduser().resolve() / agent
+    home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    home.chmod(0o700)
+    return home
+
+
+def docker_base(image: str, home: Path, checkout: Path | None = None,
+                interactive: bool = False) -> list[str]:
+    args = ["docker", "run", "--rm", "--cap-drop=ALL", "--security-opt=no-new-privileges",
+            "--pids-limit=256", "--memory=4g", "--read-only", "--tmpfs=/tmp:rw,nosuid,nodev",
+            "--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/home/webby",
+            "--mount", f"type=bind,src={home},dst=/home/webby"]
+    if checkout is not None:
+        args += ["--mount", f"type=bind,src={checkout},dst=/work",
+                 "--mount", f"type=bind,src={checkout / '.git'},dst=/work/.git,readonly",
+                 "--workdir", "/work"]
+    if interactive:
+        args.append("--interactive")
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            args.append("--tty")
+    args.append(image)
+    return args
+
+
+def agent_command(agent: str, prompt: str) -> list[str]:
+    if agent == "codex":
+        return ["codex", "exec", "--sandbox", "workspace-write", "--ephemeral",
+                "--ignore-user-config", "--ignore-rules", "-c", "approval_policy=\"never\"", prompt]
+    return ["claude", "--safe-mode", "--restricted", "--no-chrome",
+            "--no-session-persistence", "--disable-slash-commands", "--tools",
+            "Read,Edit,Write,Glob,Grep", "--allowedTools", "Read,Edit,Write,Glob,Grep",
+            "--disallowedTools", "mcp__*", "--permission-mode", "dontAsk",
+            "--permission-prompts", "none", "-p", prompt]
+
+
+def prompt_for(plan: dict, step: dict) -> str:
+    paths = ", ".join(step["paths"])
+    return (f"Build or improve this website from the owner's brief: {plan['brief']}\n\n"
+            f"Your assigned task: {step['task']}\n"
+            f"You may change only files matching: {paths}\n"
+            "Keep content truthful; do not invent customers, outcomes, or contact details. "
+            "Make the result visually compelling and usable for visitors, search, and AI agents. "
+            "Use clear headings, descriptive links, meaningful page titles, and visible answers "
+            "where relevant. Do not commit, publish, push, or change Git settings. "
+            "Leave the requested changes in the working tree and briefly describe what you made.")
+
+
+def changed_paths(checkout: Path) -> list[str]:
+    tracked = command(["git", "diff", "--cached", "--name-only", "-z"], cwd=checkout).stdout
+    return sorted(set(filter(None, tracked.split("\0"))))
+
+
+def tree_snapshot(checkout: Path) -> dict[str, str]:
+    """Include ignored files so they cannot become invisible step output."""
+    snapshot = {}
+    for path in checkout.rglob("*"):
+        relative = path.relative_to(checkout)
+        if relative.parts[0] == ".git":
+            continue
+        name = relative.as_posix()
+        if path.is_symlink():
+            snapshot[name] = f"link:{os.readlink(path)}"
+        elif path.is_dir():
+            continue
+        elif path.is_file():
+            with path.open("rb") as stream:
+                snapshot[name] = f"file:{hashlib.file_digest(stream, 'sha256').hexdigest()}"
+        else:
+            snapshot[name] = "special"
+    return snapshot
+
+
+def reject_special_files(checkout: Path, changed: list[str]) -> None:
+    if not changed:
+        return
+    staged = command(["git", "ls-files", "--stage", "-z", "--", *changed], cwd=checkout).stdout
+    for entry in filter(None, staged.split("\0")):
+        metadata, name = entry.split("\t", 1)
+        mode = metadata.split(" ", 1)[0]
+        if mode not in {"100644", "100755"}:
+            raise RunnerError(f"Agent created an unsupported file type: {name} ({mode})")
+
+
+def run_plan(plan: dict, repo: Path, patch: Path, image: str, state_dir: Path) -> None:
+    repo = repo.resolve()
+    patch = patch.expanduser().resolve()
+    if not (repo / ".git").exists():
+        raise RunnerError("--repo must be a Git checkout.")
+    if command(["git", "status", "--porcelain", "--untracked-files=all"], cwd=repo).stdout:
+        raise RunnerError("Start from a clean branch so the patch has a clear base.")
+    if patch.is_relative_to(repo):
+        raise RunnerError("Write the patch outside the checkout, then inspect it before applying.")
+    base = command(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
+    with tempfile.TemporaryDirectory(prefix="webby-model-") as temp:
+        checkout = Path(temp) / "site"
+        command(["git", "clone", "--local", "--no-hardlinks", "--quiet", str(repo), str(checkout)], timeout=120)
+        command(["git", "checkout", "--detach", "--quiet", base], cwd=checkout)
+        for index, step in enumerate(plan["steps"], 1):
+            home = private_home(state_dir, step["agent"])
+            before = command(["git", "rev-parse", "HEAD"], cwd=checkout).stdout.strip()
+            before_tree = tree_snapshot(checkout)
+            args = docker_base(image, home, checkout) + agent_command(step["agent"], prompt_for(plan, step))
+            print(f"Step {index}/{len(plan['steps'])}: {step['agent']} — {step['task']}", flush=True)
+            command(args, timeout=TIMEOUT_SECONDS)
+            after = command(["git", "rev-parse", "HEAD"], cwd=checkout).stdout.strip()
+            if after != before:
+                raise RunnerError(f"Step {index} changed Git history; no patch was produced.")
+            after_tree = tree_snapshot(checkout)
+            touched = sorted(name for name in before_tree.keys() | after_tree.keys()
+                             if before_tree.get(name) != after_tree.get(name))
+            outside = [name for name in touched if not matches_scope(name, step["paths"])]
+            if outside:
+                raise RunnerError(f"Step {index} changed files outside its assigned paths: {', '.join(outside)}")
+            command(["git", "add", "-A"], cwd=checkout)
+            changed = changed_paths(checkout)
+            omitted = [name for name in touched if name not in changed]
+            if omitted:
+                raise RunnerError(f"Step {index} changed ignored files that would be missing from the patch: {', '.join(omitted)}")
+            reject_special_files(checkout, changed)
+            if changed:
+                command(["git", "-c", "user.name=Webby Model Runner",
+                         "-c", "user.email=webby@users.noreply.github.com",
+                         "-c", "core.hooksPath=/dev/null",
+                         "commit", "--quiet", "-m", f"Temporary model step {index}"], cwd=checkout)
+            print(f"  {len(changed)} file(s) changed within the assigned paths.", flush=True)
+        diff = command(["git", "diff", "--binary", base, "HEAD"], cwd=checkout).stdout
+        if not diff:
+            raise RunnerError("The agents made no file changes; no patch was produced.")
+        patch.parent.mkdir(parents=True, exist_ok=True)
+        patch.write_text(diff, encoding="utf-8")
+    print(f"Review patch: {patch}")
+    print(f"Apply on the clean branch: git apply --check {patch} && git apply {patch}")
+
+
+def doctor(image: str, state_dir: Path) -> int:
+    try:
+        command(["docker", "image", "inspect", image], timeout=15)
+    except RunnerError as error:
+        print(f"Runner image unavailable: {error}")
+        print("Build it with: docker build -f model-runner/Dockerfile -t webby-model-runner:local .")
+        return 1
+    ready = True
+    for agent in sorted(AGENTS):
+        home = private_home(state_dir, agent)
+        auth = ["codex", "login", "status"] if agent == "codex" else ["claude", "auth", "status"]
+        result = subprocess.run(docker_base(image, home) + auth, text=True,
+                                capture_output=True, timeout=30, check=False)
+        connected = result.returncode == 0
+        print(f"{agent}: {'ready' if connected else 'needs login'}")
+        ready &= connected
+    return 0 if ready else 1
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--image", default=IMAGE)
+    parser.add_argument("--state-dir", type=Path,
+                        default=Path.home() / ".local/share/webby-model-runner")
+    sub = parser.add_subparsers(dest="action", required=True)
+    sub.add_parser("doctor")
+    login = sub.add_parser("login")
+    login.add_argument("agent", choices=sorted(AGENTS))
+    run = sub.add_parser("run")
+    run.add_argument("plan", type=Path)
+    run.add_argument("--repo", required=True, type=Path)
+    run.add_argument("--patch", required=True, type=Path)
+    args = parser.parse_args()
+    try:
+        if args.action == "doctor":
+            return doctor(args.image, args.state_dir)
+        if args.action == "login":
+            home = private_home(args.state_dir, args.agent)
+            login_args = (["codex", "login", "--device-auth"] if args.agent == "codex"
+                          else ["claude", "auth", "login", "--claudeai"])
+            return subprocess.run(docker_base(args.image, home, interactive=True) + login_args,
+                                  check=False).returncode
+        run_plan(load_plan(args.plan), args.repo, args.patch, args.image, args.state_dir)
+        return 0
+    except (RunnerError, OSError) as error:
+        print(f"webby-model-runner: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
