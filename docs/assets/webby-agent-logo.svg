@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Webby Website Manager</title>
+  <desc id="description">A warm white W and a vermilion square on a dark rounded square.</desc>
+  <rect width="512" height="512" rx="72" fill="#181a17"/>
+  <path d="M10 16h9l5.4 22.4L29 23h6l4.6 15.4L45 16h9l-9.1 33h-9.2L32 35.7 28.3 49h-9.2z" transform="scale(8)" fill="#f5f3ec"/>
+  <rect x="384" y="48" width="80" height="80" fill="#df5132"/>
+</svg>
