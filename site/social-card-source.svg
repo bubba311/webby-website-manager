@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">Webby — Look good. Be found.</title>
+  <desc id="description">An editorial Webby card in warm paper, black and vermilion. Webby creates, updates and checks websites that are beautiful for people and clear to search and AI agents.</desc>
+
+  <rect width="1200" height="630" fill="#f4f0e8"/>
+  <rect x="22.5" y="22.5" width="1155" height="585" fill="none" stroke="#181816" stroke-width="1"/>
+
+  <!-- Masthead -->
+  <rect x="58" y="51" width="46" height="46" fill="#181816"/>
+  <path d="M65.5 62.5h6.6l4.1 18.1 3.4-12.5h4.7l3.4 12.5 4.1-18.1h6.6L91.5 87h-6.8L82 77l-2.7 10h-6.8z" fill="#f4f0e8"/>
+  <circle cx="97" cy="58" r="4" fill="#e74c34"/>
+  <text x="118" y="86" font-family="Arial, Helvetica, sans-serif" font-size="39" font-weight="700" letter-spacing="-2.8" fill="#181816">webby</text>
+  <circle cx="242" cy="82" r="4.5" fill="#e74c34"/>
+  <text x="1144" y="79" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" letter-spacing="2.1" fill="#181816">YOUR WEBSITE TEAMMATE</text>
+  <line x1="58" y1="116.5" x2="1143" y2="116.5" stroke="#181816" stroke-width="1"/>
+
+  <!-- Large, deliberately simple type keeps the card legible at feed size. -->
+  <text x="55" y="292" font-family="Arial, Helvetica, sans-serif" font-size="140" font-weight="700" letter-spacing="-10" fill="#181816">Look good.</text>
+  <text x="59" y="431" font-family="Georgia, 'Times New Roman', serif" font-size="133" font-style="italic" letter-spacing="-6" fill="#e74c34">Be found.</text>
+  <line x1="61" y1="459" x2="722" y2="459" stroke="#181816" stroke-width="1"/>
+  <text x="59" y="504" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" letter-spacing="-0.6" fill="#181816">Create. Update. Check.</text>
+  <text x="59" y="535" font-family="Arial, Helvetica, sans-serif" font-size="17.5" fill="#3d3d39">Beautiful for people. Clear to search and AI agents.</text>
+
+  <!-- A site is represented as a page in progress, with a visible path through it. -->
+  <circle cx="1061" cy="267" r="117" fill="#e74c34"/>
+  <path d="M729 305h87m-15-13 15 13-15 13" fill="none" stroke="#e74c34" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+  <text x="754" y="286" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" letter-spacing="1.5" fill="#181816">TEXT IN</text>
+
+  <g transform="rotate(8 987 339)">
+    <rect x="845" y="171" width="284" height="337" fill="#181816"/>
+    <rect x="868" y="193" width="238" height="25" fill="none" stroke="#f4f0e8" stroke-width="1.3"/>
+    <circle cx="882" cy="205" r="2.3" fill="#e74c34"/>
+    <circle cx="892" cy="205" r="2.3" fill="#f4f0e8"/>
+    <circle cx="902" cy="205" r="2.3" fill="#f4f0e8"/>
+    <line x1="926" y1="205.5" x2="1093" y2="205.5" stroke="#f4f0e8" stroke-width="1"/>
+    <text x="869" y="258" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" letter-spacing="1.8" fill="#e74c34">NEW WEBSITE / 001</text>
+    <rect x="868" y="274" width="188" height="10" fill="#f4f0e8"/>
+    <rect x="868" y="294" width="138" height="10" fill="#f4f0e8"/>
+    <rect x="868" y="327" width="238" height="69" fill="#f4f0e8"/>
+    <rect x="881" y="341" width="73" height="7" fill="#181816"/>
+    <rect x="881" y="355" width="136" height="5" fill="#181816" opacity=".55"/>
+    <rect x="881" y="366" width="112" height="5" fill="#181816" opacity=".55"/>
+    <rect x="1047" y="342" width="46" height="39" fill="#e74c34"/>
+    <rect x="868" y="421" width="98" height="34" fill="#e74c34"/>
+    <path d="M1018 438h88" stroke="#f4f0e8" stroke-width="1"/>
+    <text x="868" y="485" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" letter-spacing="2" fill="#f4f0e8">READY FOR REVIEW</text>
+  </g>
+
+  <line x1="58" y1="563.5" x2="1143" y2="563.5" stroke="#181816" stroke-width="1"/>
+  <text x="59" y="592" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" letter-spacing="1.7" fill="#181816">WEBBY / WEBSITE MANAGER</text>
+  <text x="1143" y="592" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" letter-spacing="1.7" fill="#181816">CREATE → UPDATE → CHECK</text>
+</svg>

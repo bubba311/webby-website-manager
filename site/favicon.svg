@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="17" fill="#5145eb"/>
-  <path d="M13 20h9l5 24 5-17h8l5 17 4-24h8L50 53h-9l-5-17-5 17h-9z" fill="#fff"/>
-  <path d="M50 7l1.7 5.3L57 14l-5.3 1.7L50 21l-1.7-5.3L43 14l5.3-1.7z" fill="#d8fa5b"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Webby</title>
+  <rect width="64" height="64" rx="9" fill="#181816"/>
+  <path d="M10 16h9l5.4 22.4L29 23h6l4.6 15.4L45 16h9l-9.1 33h-9.2L32 35.7 28.3 49h-9.2z" fill="#f4f0e8"/>
+  <circle cx="53" cy="11" r="5" fill="#e74c34"/>
 </svg>
