@@ -2,5 +2,5 @@
   <title id="title">Webby</title>
   <rect width="64" height="64" rx="9" fill="#181816"/>
   <path d="M10 16h9l5.4 22.4L29 23h6l4.6 15.4L45 16h9l-9.1 33h-9.2L32 35.7 28.3 49h-9.2z" fill="#f4f0e8"/>
-  <circle cx="53" cy="11" r="5" fill="#e74c34"/>
+  <rect x="48" y="6" width="10" height="10" fill="#e74c34"/>
 </svg>
