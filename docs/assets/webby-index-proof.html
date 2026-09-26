@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Webby — Real work, in public</title>
+    <style>
+      @font-face { font-family: Space; src: url("../../site/fonts/space-grotesk-latin.woff2") format("woff2"); font-weight: 400 700; }
+      @font-face { font-family: DM; src: url("../../site/fonts/dm-sans-latin.woff2") format("woff2"); font-weight: 400 700; }
+      * { box-sizing: border-box; }
+      html, body { width: 1440px; height: 900px; margin: 0; overflow: hidden; }
+      body { background: #ebe9e1; color: #181a17; font-family: DM, Arial, sans-serif; }
+      .sheet { width: 100%; height: 100%; padding: 34px 48px 28px; display: flex; flex-direction: column; }
+      .top { display: flex; align-items: center; justify-content: space-between; min-height: 70px; border-top: 1px solid #181a17; border-bottom: 1px solid #181a17; }
+      .brand { display: inline-flex; align-items: baseline; font: 700 38px/.9 Space, Arial, sans-serif; letter-spacing: -.105em; }
+      .stop { width: 8px; height: 8px; margin-left: 8px; background: #df5132; transform: translateY(-19px); }
+      .eyebrow, .panel-label, .foot { font: 700 12px/1.2 Space, Arial, sans-serif; letter-spacing: .15em; }
+      .intro { display: flex; align-items: start; justify-content: space-between; gap: 35px; padding-top: 28px; }
+      .intro .eyebrow { color: #a43422; padding-top: 13px; }
+      h1 { flex: 1; margin: 0; font: 700 94px/.91 Space, Arial, sans-serif; letter-spacing: -.09em; }
+      h1 em { display: block; margin-top: 8px; color: #df5132; font: 400 104px/.92 Georgia, serif; letter-spacing: -.09em; }
+      .cards { display: grid; grid-template-columns: .95fr 1.05fr; gap: 18px; margin-top: auto; }
+      .panel { min-height: 340px; padding: 29px 33px 30px; display: flex; flex-direction: column; justify-content: space-between; }
+      .ask { border: 1px solid #181a17; background: #f5f3ec; }
+      .ask blockquote { margin: 28px 0 0; max-width: 540px; font: 600 31px/1.21 Space, Arial, sans-serif; letter-spacing: -.045em; }
+      .ask .source { margin: 18px 0 0; color: #55574f; font-size: 17px; }
+      .delivery { background: #20221f; color: #f5f3ec; }
+      .delivery .panel-label { color: #ee7a5c; }
+      .delivery strong { display: block; color: #ee7a5c; font: 700 104px/.85 Space, Arial, sans-serif; letter-spacing: -.095em; }
+      .delivery p { max-width: 540px; margin: 0; font-size: 25px; line-height: 1.28; letter-spacing: -.03em; }
+      .bottom { display: flex; align-items: center; justify-content: space-between; gap: 30px; margin-top: 18px; padding-top: 17px; border-top: 1px solid #181a17; }
+      .bottom .foot:last-child { text-align: right; }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <header class="top"><span class="brand">webby<span class="stop" aria-hidden="true"></span></span><span class="eyebrow">THE WEBSITE MANAGER / REAL WORK, IN PUBLIC</span></header>
+      <div class="intro"><span class="eyebrow">RECEIPT NO. 001</span><h1>One message.<em>A real pull request.</em></h1></div>
+      <div class="cards">
+        <section class="panel ask"><span class="panel-label">01 / OWNER'S REQUEST</span><div><blockquote>“Add a clear ‘Try Webby’ link. Change only files under site/, open a pull request, and do not merge it.”</blockquote><p class="source">Actual request, excerpt · Sep 26, 2026</p></div></section>
+        <section class="panel delivery"><span class="panel-label">02 / WEBBY'S DELIVERY</span><strong>PR #1 ↗</strong><p>Two site files changed by Webby. A pull request opened for review. The owner decided when to merge.</p></section>
+      </div>
+      <footer class="bottom"><span class="foot">WEBBY-AUTHORED COMMIT / 3ccf78e</span><span class="foot">GITHUB.COM/BUBBA311/WEBBY-WEBSITE-MANAGER/PULL/1</span></footer>
+    </div>
+  </body>
+</html>
