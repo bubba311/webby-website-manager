@@ -6,7 +6,7 @@ document.querySelectorAll('[data-copy-target]').forEach((button) => {
     const original = button.textContent;
     try {
       await navigator.clipboard.writeText(message);
-      button.textContent = 'Copied first task ✓';
+      button.textContent = 'Copied ✓';
       window.setTimeout(() => { button.textContent = original; }, 2200);
     } catch {
       button.textContent = 'Select the text above to copy';

@@ -114,7 +114,7 @@ h1 span { display: block; color: var(--blue); font-size: .82em; letter-spacing: 
 .ticker-inner { width: min(100% - 88px, 1392px); margin: auto; min-height: 80px; display: flex; align-items: center; justify-content: space-between; gap: 18px; white-space: nowrap; }
 .ticker span { font: 700 clamp(13px, 1.22vw, 17px)/1 "Space Grotesk", sans-serif; letter-spacing: -.02em; }
 .ticker b { color: var(--blue); font-size: 24px; font-weight: 500; }
-.intro { padding-block: 127px 130px; }
+.intro { padding-block: 127px 95px; }
 .section-tag { display: inline-flex; align-items: center; gap: 10px; color: #3f3d7d; font: 700 11px/1.2 "Space Grotesk", sans-serif; letter-spacing: .14em; }
 .section-tag span { color: var(--blue); background: #e5e1ff; border-radius: 3px; padding: 6px 7px; letter-spacing: 0; }
 .intro-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, .7fr); gap: 80px; align-items: end; margin-top: 24px; }
@@ -133,6 +133,28 @@ h2 em { font-style: normal; color: var(--blue); }
 .feature-card h3 { font-size: clamp(26px, 2.35vw, 35px); line-height: 1.04; letter-spacing: -.055em; margin: auto 0 16px; }
 .feature-card p { color: #4f535c; font-size: 14px; line-height: 1.55; margin: 0; max-width: 300px; }
 .feature-card-accent p { color: #f1efff; }
+.audit-section { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: clamp(50px, 8vw, 130px); padding-block: 0 134px; }
+.audit-copy h2 { font-size: clamp(48px, 5vw, 75px); line-height: 1.04; letter-spacing: -.075em; margin: 24px 0 23px; }
+.audit-copy h2 em { color: var(--blue); font-style: normal; }
+.audit-copy > p { max-width: 555px; color: #414650; font-size: 17px; line-height: 1.6; margin-bottom: 23px; }
+.audit-prompt { max-width: 510px; margin-top: 38px; padding: 20px 22px 18px; border: 1px solid var(--line); border-left: 5px solid var(--blue); border-radius: 6px; background: #fffefa; }
+.audit-prompt > span { color: var(--blue-dark); font: 700 10px/1.2 "Space Grotesk", sans-serif; letter-spacing: .12em; }
+.audit-prompt p { margin: 10px 0 2px; font: 600 14px/1.55 "Space Grotesk", sans-serif; }
+.audit-prompt .copy-button { margin-top: 8px; }
+.audit-board { border: 1px solid #b9b3dc; border-radius: 15px; background: #f7f6ff; overflow: hidden; box-shadow: 13px 13px 0 #dfdcf2; transform: rotate(1deg); }
+.audit-board-head { min-height: 66px; display: flex; align-items: center; gap: 11px; padding: 12px 20px; background: var(--blue); color: white; font: 700 11px/1 "Space Grotesk", sans-serif; letter-spacing: .08em; }
+.audit-mark { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 7px; background: white; color: var(--blue); font: 700 15px/1 "Space Grotesk", sans-serif; letter-spacing: -.07em; }
+.audit-live { margin-left: auto; border: 1px solid #aaa2ff; border-radius: 4px; padding: 6px 7px; font-size: 9px; }
+.audit-board-intro { padding: 24px 25px 26px; background: #eae7ff; }
+.audit-board-intro span { display: block; color: var(--blue-dark); font: 700 10px/1.2 "Space Grotesk", sans-serif; letter-spacing: .13em; }
+.audit-board-intro strong { display: block; margin-top: 12px; max-width: 340px; font: 700 clamp(23px, 2.25vw, 32px)/1.12 "Space Grotesk", sans-serif; letter-spacing: -.055em; }
+.audit-row { min-height: 93px; display: flex; align-items: center; gap: 20px; padding: 16px 24px; border-top: 1px solid #d5d1e9; }
+.audit-row-num { align-self: flex-start; padding-top: 5px; color: var(--blue); font: 700 20px/1 "Space Grotesk", sans-serif; letter-spacing: -.05em; }
+.audit-row h3 { margin: 0 0 4px; font-size: 18px; letter-spacing: -.045em; }
+.audit-row p { margin: 0; color: #555a67; font-size: 12px; line-height: 1.4; }
+.audit-row > span:last-child { margin-left: auto; color: var(--blue); font-size: 19px; }
+.audit-board-foot { padding: 17px 24px; background: var(--lime); font: 700 10px/1.3 "Space Grotesk", sans-serif; letter-spacing: .04em; }
+.audit-board-foot span { margin-inline: 6px; color: var(--blue-dark); }
 .proof-band { background: var(--night); color: #fffefa; padding-block: 115px 124px; position: relative; }
 .proof-band::before { content: ""; position: absolute; width: 310px; height: 310px; border: 1px solid #ffffff1b; border-radius: 50%; top: -180px; right: 12%; }
 .proof-grid { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, .9fr); align-items: center; gap: clamp(60px, 10vw, 155px); }
@@ -207,6 +229,8 @@ h2 em { font-style: normal; color: var(--blue); }
   .feature-grid { gap: 10px; }
   .feature-card { padding: 20px; min-height: 300px; }
   .feature-count { right: 20px; }
+  .audit-section { grid-template-columns: 1fr; gap: 50px; }
+  .audit-board { width: min(100% - 14px, 640px); margin-inline: auto; }
   .proof-grid { gap: 70px; grid-template-columns: 1fr; }
   .proof-visual { max-width: 550px; }
   .get-card { grid-template-columns: 1fr; }
@@ -244,13 +268,23 @@ h2 em { font-style: normal; color: var(--blue); }
   .ticker-inner { min-height: 64px; gap: 20px; }
   .ticker span { font-size: 12px; }
   .ticker b { font-size: 18px; }
-  .intro { padding-block: 88px 95px; }
+  .intro { padding-block: 88px 75px; }
   .intro h2, .proof-band h2, .how h2, .get-section h2 { font-size: clamp(43px, 10vw, 65px); }
   .intro-grid { margin-top: 22px; }
   .intro-side p, .proof-band p, .get-copy > p { font-size: 16px; }
   .feature-grid { grid-template-columns: 1fr; margin-top: 46px; gap: 12px; }
   .feature-card { min-height: 238px; padding: 25px; }
   .feature-card h3 { font-size: 32px; }
+  .audit-section { padding-bottom: 93px; gap: 36px; }
+  .audit-copy h2 { font-size: clamp(43px, 10vw, 65px); }
+  .audit-copy > p { font-size: 16px; }
+  .audit-prompt { margin-top: 28px; }
+  .audit-board-head { min-height: 58px; padding-inline: 15px; font-size: 9px; }
+  .audit-board-intro { padding: 21px 20px; }
+  .audit-row { min-height: 87px; padding: 15px 18px; gap: 13px; }
+  .audit-row h3 { font-size: 17px; }
+  .audit-row p { font-size: 11px; }
+  .audit-board-foot { padding: 14px 18px; font-size: 8px; }
   .proof-band { padding-block: 86px 90px; }
   .proof-grid { gap: 52px; }
   .proof-visual { width: calc(100% - 12px); }
