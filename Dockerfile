@@ -6,7 +6,7 @@ LABEL org.opencontainers.image.title="Webby Website Manager" \
 
 USER root
 RUN apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gh jq \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gh jq python3-minimal \
  && rm -rf /var/lib/apt/lists/* \
  && install -d -m 0700 -o node -g node /var/lib/plow/gh /var/lib/plow/sites
 
@@ -18,5 +18,7 @@ ENV AGENT_ID=webby-website-manager \
 
 COPY prompt/AGENTS.md /opt/plow/prompt/AGENTS.md
 COPY skills/ /opt/plow/skills/
+COPY starter-site/ /opt/webby/starter-site/
 COPY scripts/webby-github-login /usr/local/bin/webby-github-login
+COPY scripts/webby-site-audit /usr/local/bin/webby-site-audit
 USER node

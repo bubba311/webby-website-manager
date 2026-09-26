@@ -1,0 +1,668 @@
+#!/usr/bin/env python3
+"""Inspect a public page for search and browser-agent access problems.
+
+This is a bounded, read-only check of page access and structure. It does not
+measure search placement.
+"""
+
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+from html.parser import HTMLParser
+import http.client
+import ipaddress
+import json
+import re
+import signal
+import socket
+import ssl
+import sys
+from urllib.parse import urljoin, urlsplit, urlunsplit
+from xml.etree import ElementTree
+
+
+MAX_BYTES = 512 * 1024
+MAX_REDIRECTS = 3
+TIMEOUT_SECONDS = 8
+USER_AGENT = "WebbySiteAudit/1.0 (+https://github.com/bubba311/webby-website-manager)"
+VOID_TAGS = {
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+    "meta", "param", "source", "track", "wbr",
+}
+
+
+class AuditError(Exception):
+    """A URL could not be safely or usefully inspected."""
+
+
+class PinnedHTTPConnection(http.client.HTTPConnection):
+    def __init__(self, host: str, port: int, address: str) -> None:
+        super().__init__(host, port, timeout=TIMEOUT_SECONDS)
+        self.address = address
+
+    def connect(self) -> None:
+        self.sock = socket.create_connection((self.address, self.port), self.timeout)
+
+
+class PinnedHTTPSConnection(http.client.HTTPSConnection):
+    def __init__(self, host: str, port: int, address: str) -> None:
+        super().__init__(host, port, timeout=TIMEOUT_SECONDS, context=ssl.create_default_context())
+        self.address = address
+
+    def connect(self) -> None:
+        raw = socket.create_connection((self.address, self.port), self.timeout)
+        self.sock = self._context.wrap_socket(raw, server_hostname=self.host)
+
+
+def safe_target(url: str, allow_private: bool = False) -> tuple[str, str, int, str]:
+    """Validate a destination and pin its resolved IP before connecting."""
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+    except ValueError as error:
+        raise AuditError(f"Invalid URL: {error}") from error
+    if parts.scheme not in ("https", "http") or not host:
+        raise AuditError("Use a full HTTPS URL with a hostname.")
+    if parts.username or parts.password:
+        raise AuditError("URLs with embedded credentials are not allowed.")
+    if parts.scheme == "http" and not allow_private:
+        raise AuditError("Only HTTPS URLs are allowed.")
+    if not allow_private and port != 443:
+        raise AuditError("Only the standard HTTPS port is allowed.")
+    try:
+        parsed_ip = ipaddress.ip_address(host)
+    except ValueError:
+        parsed_ip = None
+    if parsed_ip and not allow_private:
+        raise AuditError("Use a public hostname, not an IP-address URL.")
+    if allow_private and (not parsed_ip or not parsed_ip.is_loopback) and host != "localhost":
+        raise AuditError("--allow-private permits only localhost/loopback test URLs.")
+    try:
+        addresses = {
+            ipaddress.ip_address(row[4][0])
+            for row in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        }
+    except (socket.gaierror, ValueError) as error:
+        raise AuditError(f"Could not resolve hostname: {error}") from error
+    if not addresses:
+        raise AuditError("Hostname has no usable address.")
+    if allow_private:
+        if any(not address.is_loopback for address in addresses):
+            raise AuditError("Test hostname must resolve only to loopback addresses.")
+    elif any(not address.is_global for address in addresses):
+        raise AuditError("Hostname resolves to a private or non-public address.")
+    address = str(sorted(addresses, key=lambda item: (item.version, str(item)))[0])
+    path = parts.path or "/"
+    if not path.startswith("/"):
+        path = "/" + path
+    if parts.query:
+        path += "?" + parts.query
+    normalized = urlunsplit((parts.scheme, parts.netloc, parts.path or "/", parts.query, ""))
+    return normalized, host, port, address
+
+
+def fetch(url: str, allow_private: bool = False) -> dict:
+    history: list[str] = []
+    current = url
+    for redirect_number in range(MAX_REDIRECTS + 1):
+        normalized, host, port, address = safe_target(current, allow_private)
+        parts = urlsplit(normalized)
+        path = parts.path + ("?" + parts.query if parts.query else "")
+        connection = (
+            PinnedHTTPSConnection(host, port, address)
+            if parts.scheme == "https"
+            else PinnedHTTPConnection(host, port, address)
+        )
+        try:
+            connection.request(
+                "GET", path,
+                headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity", "Accept": "text/html, text/plain, */*"},
+            )
+            response = connection.getresponse()
+            headers: dict[str, str] = {}
+            for key, value in response.getheaders():
+                lower = key.lower()
+                headers[lower] = f"{headers[lower]}, {value}" if lower in headers else value
+            status = response.status
+            if status in (301, 302, 303, 307, 308):
+                location = response.getheader("Location")
+                if not location:
+                    raise AuditError(f"HTTP {status} redirect has no Location header: {normalized}")
+                if redirect_number == MAX_REDIRECTS:
+                    raise AuditError("Too many redirects.")
+                history.append(normalized)
+                current = urljoin(normalized, location)
+                continue
+            length = response.getheader("Content-Length")
+            if length and length.isdigit() and int(length) > MAX_BYTES:
+                raise AuditError(f"Response exceeds {MAX_BYTES} bytes: {normalized}")
+            body = response.read(MAX_BYTES + 1)
+            if len(body) > MAX_BYTES:
+                raise AuditError(f"Response exceeds {MAX_BYTES} bytes: {normalized}")
+            encoding = headers.get("content-encoding", "identity").lower()
+            if encoding not in ("identity", ""):
+                raise AuditError(f"Unsupported compressed response ({encoding}): {normalized}")
+            charset = "utf-8"
+            for part in headers.get("content-type", "").split(";")[1:]:
+                if part.strip().lower().startswith("charset="):
+                    charset = part.split("=", 1)[1].strip().strip('"')
+            try:
+                text = body.decode(charset, errors="replace")
+            except LookupError:
+                text = body.decode("utf-8", errors="replace")
+            return {"url": normalized, "status": status, "headers": headers, "text": text, "redirects": history}
+        except (OSError, TimeoutError, http.client.HTTPException) as error:
+            raise AuditError(f"Fetch failed for {normalized}: {error}") from error
+        finally:
+            connection.close()
+    raise AuditError("Too many redirects.")
+
+
+class PageParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.stack: list[tuple[str, dict | None]] = []
+        self.title = ""
+        self.body_text: list[str] = []
+        self.main_text: list[str] = []
+        self.headings: list[dict] = []
+        self.meta: list[dict] = []
+        self.links: list[dict] = []
+        self.controls: list[dict] = []
+        self.labels: list[dict] = []
+        self.jsonld: list[str] = []
+        self.has_main = False
+        self.ids: set[str] = set()
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        data = {key: value or "" for key, value in attrs}
+        node = None
+        if data.get("id"):
+            self.ids.add(data["id"])
+        if tag == "main":
+            self.has_main = True
+        if tag == "meta":
+            self.meta.append(data)
+        elif tag == "link":
+            self.links.append(data)
+        elif tag in ("a", "button", "label", "input", "textarea", "select", "script", "h1", "h2", "h3"):
+            node = {"tag": tag, "attrs": data, "text": ""}
+            if tag == "a":
+                self.controls.append(node)
+            elif tag in ("button", "input", "textarea", "select"):
+                node["wrapped_label"] = any(item and item["tag"] == "label" for _, item in self.stack)
+                self.controls.append(node)
+            elif tag == "label":
+                self.labels.append(node)
+            elif tag in ("h1", "h2", "h3"):
+                self.headings.append(node)
+        elif tag == "img":
+            # An image can supply the accessible name of an image-only link/button.
+            for _, active in self.stack:
+                if active and active["tag"] in ("a", "button"):
+                    active["text"] += " " + data.get("alt", "")
+        if tag not in VOID_TAGS:
+            self.stack.append((tag, node))
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+        if tag not in VOID_TAGS:
+            self.handle_endtag(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index][0] == tag:
+                for _, node in self.stack[index:]:
+                    if node and node["tag"] == "script" and node["attrs"].get("type", "").lower() == "application/ld+json":
+                        self.jsonld.append(node["text"])
+                del self.stack[index:]
+                return
+
+    def handle_data(self, data: str) -> None:
+        tags = [tag for tag, _ in self.stack]
+        if "title" in tags:
+            self.title += data
+        if "body" in tags and not any(tag in tags for tag in ("script", "style", "noscript")):
+            self.body_text.append(data)
+            if "main" in tags:
+                self.main_text.append(data)
+        for _, node in self.stack:
+            if node:
+                node["text"] += data
+
+
+def finding(records: list[dict], check_id: str, status: str, severity: str, title: str,
+            evidence: str, remediation: str, url: str) -> None:
+    records.append({
+        "id": check_id, "status": status, "severity": severity,
+        "title": title, "url": url, "evidence": evidence,
+        "remediation": remediation,
+    })
+
+
+def meta_value(meta: list[dict], key: str, value: str) -> str:
+    return next((item.get("content", "").strip() for item in meta if item.get(key, "").lower() == value), "")
+
+
+def robots_path_match(path: str, pattern: str) -> bool:
+    """Match a robots path with bounded literal searches instead of regex backtracking."""
+    anchored = pattern.endswith("$")
+    body = pattern[:-1] if anchored else pattern
+    chunks = body.split("*")
+    if not path.startswith(chunks[0]):
+        return False
+    position = len(chunks[0])
+    if len(chunks) == 1:
+        return not anchored or position == len(path)
+    for chunk in chunks[1:-1]:
+        found = path.find(chunk, position)
+        if found < 0:
+            return False
+        position = found + len(chunk)
+    last = chunks[-1]
+    if anchored:
+        return path.endswith(last) and len(path) - len(last) >= position
+    return path.find(last, position) >= 0
+
+
+def robots_decision(text: str, agent: str, page_url: str) -> tuple[bool | None, str]:
+    """Evaluate common RFC 9309 Allow/Disallow patterns, including * and $."""
+    groups: list[tuple[list[str], list[tuple[str, str]]]] = []
+    agents: list[str] = []
+    rules: list[tuple[str, str]] = []
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if ":" not in line:
+            continue
+        field, value = (part.strip() for part in line.split(":", 1))
+        field = field.lower()
+        if field == "user-agent":
+            if rules:
+                groups.append((agents, rules))
+                agents, rules = [], []
+            agents.append(value.lower())
+        elif field in ("allow", "disallow") and agents:
+            if value or field == "allow":
+                rules.append((field, value))
+    if agents:
+        groups.append((agents, rules))
+
+    token = agent.lower()
+    specific = [group for group in groups if token in group[0]]
+    matching = specific or [group for group in groups if "*" in group[0]]
+    path = urlsplit(page_url).path or "/"
+    if urlsplit(page_url).query:
+        path += "?" + urlsplit(page_url).query
+    if "%" in path or not path.isascii():
+        return None, "encoded or non-ASCII page path needs a crawler-specific robots tester"
+    matches: list[tuple[int, bool, str]] = []
+    for _, group_rules in matching:
+        for kind, pattern in group_rules:
+            if "%" in pattern or not pattern.isascii():
+                return None, "encoded or non-ASCII robots rule needs a crawler-specific robots tester"
+            if len(pattern) > 1024 or pattern.count("*") > 32:
+                return None, "unusually complex robots rule needs a crawler-specific robots tester"
+            if robots_path_match(path, pattern):
+                body = pattern[:-1] if pattern.endswith("$") else pattern
+                matches.append((len(body.replace("*", "")), kind == "allow", f"{kind.title()}: {pattern}"))
+    if not matches:
+        return True, "no matching Disallow rule"
+    # More specific patterns win; Allow wins an equally specific tie.
+    _, allowed, matched_rule = max(matches, key=lambda item: (item[0], item[1]))
+    return allowed, matched_rule
+
+
+def audit(url: str, allow_private: bool = False) -> dict:
+    records: list[dict] = []
+    report = {
+        "requested_url": url,
+        "audited_at": datetime.now(timezone.utc).isoformat(),
+        "scope": "One fetched HTML page and robots.txt at its final URL's origin root; no rendered-browser or third-party performance data.",
+        "page_url": None,
+        "robots_url": None,
+        "sitemap_url": None,
+        "redirects": [],
+        "findings": records,
+    }
+    try:
+        page = fetch(url, allow_private)
+    except AuditError as error:
+        finding(records, "page-fetch", "issue", "high", "Page could not be inspected", str(error),
+                "Check the approved public URL, TLS, redirects, and server response.", url)
+        return report
+    report["page_url"] = page["url"]
+    report["redirects"] = page["redirects"]
+    page_url = page["url"]
+    if page["status"] != 200:
+        finding(records, "page-http", "issue", "high", "Page did not return HTTP 200",
+                f"HTTP {page['status']}", "Make the intended public page return HTTP 200.", page_url)
+        return report
+    content_type = page["headers"].get("content-type", "")
+    if "html" not in content_type.lower() and not page["text"].lstrip().lower().startswith("<!doctype html"):
+        finding(records, "page-html", "issue", "high", "Page did not return HTML",
+                f"Content-Type: {content_type or '(missing)'}", "Point the audit at a public HTML page.", page_url)
+        return report
+    finding(records, "page-http", "ok", "info", "Page returned HTML",
+            "HTTP 200 and HTML response", "No change needed.", page_url)
+
+    parser = PageParser()
+    parser.feed(page["text"])
+    origin = urlunsplit((*urlsplit(page_url)[:2], "/", "", ""))
+    robots_url = urljoin(origin, "robots.txt")
+    report["robots_url"] = robots_url
+    declared_sitemaps: list[str] = []
+    try:
+        robots = fetch(robots_url, allow_private)
+        if robots["status"] == 200:
+            content_type = robots["headers"].get("content-type", "").lower()
+            unexpected_body = robots["text"].lstrip().lower().startswith(("<!doctype", "<html", "<script", "{", "["))
+            non_text = bool(content_type) and not content_type.startswith("text/plain")
+            if unexpected_body or non_text:
+                finding(records, "robots-root", "verify", "medium", "Root robots response is not plain-text crawler rules",
+                        f"HTTP 200 at {robots_url}; Content-Type: {content_type or '(missing)'}",
+                        "Check whether the host serves a challenge, error page, or non-text payload instead of plain-text crawler rules.", robots_url)
+            else:
+                for agent, check_id, label in (
+                    ("Googlebot", "googlebot-access", "Google Search crawler"),
+                    ("Bingbot", "bingbot-access", "Bing Search crawler"),
+                    ("OAI-SearchBot", "openai-search-access", "ChatGPT Search crawler"),
+                    ("Claude-SearchBot", "claude-search-access", "Claude Search crawler"),
+                ):
+                    allowed, matched_rule = robots_decision(robots["text"], agent, page_url)
+                    status = "verify" if allowed is None else "ok" if allowed else "issue"
+                    finding(records, check_id, status, "medium" if allowed is None else "info" if allowed else "high",
+                            f"robots.txt rule for {label} needs verification" if allowed is None else f"robots.txt {'permits' if allowed else 'disallows'} this path for {label}",
+                            f"{robots_url}: {matched_rule} for {agent} at {urlsplit(page_url).path}" if allowed is None else f"{robots_url}: {'allowed' if allowed else 'disallowed'} for {agent} at {urlsplit(page_url).path} ({matched_rule})",
+                            "Use the crawler's official robots tester for this encoded path/rule." if allowed is None else "No rules-based change needed; IP/network and indexing still need verification." if allowed else "Review the origin-root robots.txt policy with the site owner; keep training-bot preferences separate from search access.",
+                            robots_url)
+                declared_sitemaps = [line.split(":", 1)[1].strip() for line in robots["text"].splitlines()
+                                     if line.lower().startswith("sitemap:")]
+        elif robots["status"] == 404:
+            finding(records, "robots-root", "ok", "info", "No origin-root robots.txt was found",
+                    f"HTTP 404 at {robots_url}; no robots.txt crawl restrictions were observed.",
+                    "No change is required for a small public site. A file under a GitHub Pages project subpath does not set origin-root crawler rules.",
+                    robots_url)
+        else:
+            finding(records, "robots-root", "verify", "medium", "Crawler rules could not be determined",
+                    f"HTTP {robots['status']} at {robots_url}", "Inspect origin-root robots.txt and any hosting firewall rules.", robots_url)
+    except AuditError as error:
+        finding(records, "robots-root", "verify", "medium", "Crawler rules could not be determined",
+                str(error), "Inspect origin-root robots.txt manually.", robots_url)
+
+    # A GitHub Pages project site can serve /project/sitemap.xml while its
+    # robots.txt policy still lives at the host root. Inspect both locations.
+    sitemap_candidates = declared_sitemaps[:2]
+    sitemap_candidates.extend(
+        urljoin(page_url, item.get("href", "")) for item in parser.links
+        if "sitemap" in item.get("rel", "").lower().split() and item.get("href")
+    )
+    path_parts = [part for part in urlsplit(page_url).path.split("/") if part]
+    if path_parts:
+        sitemap_candidates.append(urljoin(origin, f"{path_parts[0]}/sitemap.xml"))
+    sitemap_candidates.append(urljoin(origin, "sitemap.xml"))
+    seen: set[str] = set()
+    sitemap_observed = False
+    for candidate in sitemap_candidates[:5]:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if urlsplit(candidate).netloc != urlsplit(origin).netloc:
+            finding(records, "sitemap-external", "verify", "low", "Sitemap is hosted elsewhere",
+                    f"Declared sitemap: {candidate}", "Verify this sitemap manually; the bounded audit fetches only this site's origin.",
+                    robots_url)
+            continue
+        try:
+            sitemap = fetch(candidate, allow_private)
+        except AuditError as error:
+            if candidate in declared_sitemaps:
+                finding(records, "sitemap-fetch", "verify", "low", "Declared sitemap could not be fetched",
+                        str(error), "Check the sitemap URL and server response.", candidate)
+            continue
+        if sitemap["status"] == 200:
+            sitemap_observed = True
+            try:
+                root = ElementTree.fromstring(sitemap["text"])
+                root_type = root.tag.rsplit("}", 1)[-1]
+                valid = root_type in ("urlset", "sitemapindex")
+                entries = sum(child.tag.rsplit("}", 1)[-1] == ("url" if root_type == "urlset" else "sitemap")
+                              for child in root) if valid else 0
+            except ElementTree.ParseError:
+                valid = False
+                entries = 0
+            if valid and entries:
+                report["sitemap_url"] = sitemap["url"]
+            sitemap_status = "issue" if not valid else "ok" if entries else "verify"
+            finding(records, "sitemap" if entries else "sitemap-empty" if valid else "sitemap-invalid",
+                    sitemap_status, "medium" if not valid else "info" if entries else "low",
+                    "XML sitemap found" if entries else "Sitemap is empty" if valid else "Sitemap response is not a valid XML sitemap",
+                    f"HTTP 200 at {sitemap['url']}; {entries} {'URL' if root_type == 'urlset' else 'sitemap'} entries" if valid else f"HTTP 200 at {sitemap['url']}; XML parsing or root element failed.",
+                    "Check that important canonical pages are listed." if entries else "Add canonical page URLs to the sitemap if you intend to use it." if valid else "Serve valid sitemap XML containing canonical page URLs.",
+                    sitemap["url"])
+            if valid and entries:
+                break
+        if candidate in declared_sitemaps and sitemap["status"] != 404:
+            finding(records, "sitemap-fetch", "verify", "low", "Declared sitemap could not be fetched",
+                    f"HTTP {sitemap['status']} at {candidate}", "Check the sitemap URL and server response.", candidate)
+    if report["sitemap_url"] is None and not sitemap_observed:
+        finding(records, "sitemap", "verify", "low", "No XML sitemap found at checked locations",
+                f"Checked up to {len(seen)} declared, page-path, or origin-root sitemap URL(s).",
+                "A sitemap can help discovery, especially for new or larger sites; a small well-linked site may not need one.", page_url)
+
+    robots_header = page["headers"].get("x-robots-tag", "")
+    general_header_parts: list[str] = []
+    other_bot_header_parts: list[str] = []
+    for part in robots_header.split(","):
+        part = part.strip()
+        match = re.match(r"^([a-z][\w-]*):\s*(.*)$", part, re.IGNORECASE)
+        if match and match.group(1).lower() not in ("max-snippet", "max-image-preview", "max-video-preview", "unavailable_after"):
+            if match.group(1).lower() in ("googlebot", "bingbot"):
+                general_header_parts.append(match.group(2))
+            else:
+                other_bot_header_parts.append(part)
+        else:
+            general_header_parts.append(part)
+    robots_meta = " ".join(
+        item.get("content", "") for item in parser.meta
+        if item.get("name", "").lower() in ("robots", "googlebot")
+    )
+    indexing_rules = (" ".join(general_header_parts) + " " + robots_meta).lower()
+    blockers = [rule for rule in ("noindex", "nosnippet", "none")
+                if re.search(rf"(?<![\w-]){rule}(?![\w-])", indexing_rules)]
+    if re.search(r"max-snippet\s*:\s*0(?!\d)", indexing_rules):
+        blockers.append("max-snippet:0")
+    if blockers:
+        finding(records, "index-directives", "issue", "high", "Search indexing or snippets are restricted",
+                f"X-Robots-Tag: {robots_header or '(none)'}; robots meta: {robots_meta or '(none)'}; matched {', '.join(blockers)}",
+                "Confirm the owner wants this page excluded; if not, remove the relevant noindex/nosnippet directive.", page_url)
+    elif other_bot_header_parts:
+        finding(records, "index-directives", "verify", "low", "Crawler-specific X-Robots-Tag needs review",
+                f"Other crawler directives: {', '.join(other_bot_header_parts)}; general/Google robots meta: {robots_meta or '(none)'}",
+                "Check each named crawler's own indexing policy; this is not a global Google noindex signal.", page_url)
+    else:
+        finding(records, "index-directives", "ok", "info", "No noindex/nosnippet directive found",
+                f"X-Robots-Tag: {robots_header or '(none)'}; robots meta: {robots_meta or '(none)'}",
+                "No change needed; this check cannot establish actual indexing.", page_url)
+
+    canonical = next((item.get("href", "") for item in parser.links if "canonical" in item.get("rel", "").lower().split()), "")
+    if canonical:
+        canonical_url = urljoin(page_url, canonical)
+        if urlsplit(canonical_url).scheme not in ("http", "https"):
+            status = "issue"
+        else:
+            status = "ok" if canonical_url.rstrip("/") == page_url.rstrip("/") else "verify"
+        finding(records, "canonical", status, "medium" if status == "issue" else "low", "Canonical URL declared",
+                f"Canonical: {canonical_url}; fetched page: {page_url}",
+                "Check that the canonical points to the preferred, publicly accessible version of this page." if status != "ok" else "No change needed.",
+                page_url)
+    else:
+        finding(records, "canonical", "verify", "low", "No canonical URL declared",
+                "No rel=canonical link in fetched HTML.",
+                "Consider a canonical if the page has duplicate URL variants; it is not mandatory for every page.", page_url)
+
+    title = " ".join(parser.title.split())
+    finding(records, "title", "ok" if title else "issue", "info" if title else "medium",
+            "Page title present" if title else "Page title is missing",
+            f"<title>{title}</title>" if title else "No nonempty <title> in fetched HTML.",
+            "Check that it accurately describes this page." if title else "Add a concise, unique title describing this page.", page_url)
+    description = meta_value(parser.meta, "name", "description")
+    finding(records, "description", "ok" if description else "verify", "info" if description else "low",
+            "Meta description present" if description else "No meta description found",
+            description if description else "No meta[name=description] in fetched HTML.",
+            "Check that it matches visible page content." if description else "Add a useful summary if you want to influence how the page may be described in search; snippets are not guaranteed.", page_url)
+
+    heading_text = [" ".join(item["text"].split()) for item in parser.headings]
+    if heading_text:
+        finding(records, "headings", "ok", "info", "Semantic headings detected in fetched HTML",
+                "; ".join(f"{item['tag']}: {text}" for item, text in zip(parser.headings[:5], heading_text[:5])),
+                "Keep headings useful for readers and assistive technology; no fixed count is required.", page_url)
+    else:
+        finding(records, "headings", "issue", "medium", "No headings found in fetched HTML",
+                "No h1, h2, or h3 found.", "Add meaningful semantic headings for the page's visible sections.", page_url)
+    main_text = " ".join(" ".join(parser.main_text or parser.body_text).split())
+    finding(records, "visible-content", "ok" if len(main_text) >= 100 else "verify",
+            "info" if len(main_text) >= 100 else "medium",
+            "Substantive text detected in fetched HTML" if len(main_text) >= 100 else "Little text detected in fetched HTML",
+            f"{len(main_text)} text characters in {'<main>' if parser.main_text else '<body>'}; CSS visibility is unverified.",
+            "Check that key facts are visible on the rendered page." if len(main_text) >= 100 else "Inspect the rendered page and accessibility tree; important facts may be injected by JavaScript or missing entirely.",
+            page_url)
+    if not parser.has_main:
+        finding(records, "main-landmark", "verify", "low", "No main landmark found",
+                "No <main> element in fetched HTML.", "Use semantic page landmarks where appropriate for people and browser agents.", page_url)
+
+    labels = {item["attrs"].get("for", "") for item in parser.labels if item["attrs"].get("for") and item["text"].strip()}
+    unlabeled: list[str] = []
+    uncertain_names: list[str] = []
+    for control in parser.controls:
+        attrs = control["attrs"]
+        tag = control["tag"]
+        if tag == "input" and attrs.get("type", "").lower() == "hidden":
+            continue
+        name = attrs.get("aria-label", "").strip() or attrs.get("title", "").strip() or control["text"].strip()
+        if tag in ("input", "textarea", "select"):
+            name = name or (attrs.get("value", "") if attrs.get("type", "").lower() in ("submit", "button") else "")
+            if attrs.get("id") in labels or control.get("wrapped_label"):
+                name = name or "associated label"
+        if not name and attrs.get("aria-labelledby", ""):
+            refs = attrs["aria-labelledby"].split()
+            if refs and all(ref in parser.ids for ref in refs):
+                uncertain_names.append(f"<{tag}> aria-labelledby={attrs['aria-labelledby']}")
+                continue
+        if not name:
+            detail = f"<{tag}>"
+            if attrs.get("id"):
+                detail += f"#{attrs['id']}"
+            if attrs.get("type"):
+                detail += f"[type={attrs['type']}]"
+            unlabeled.append(detail)
+    control_status = "issue" if unlabeled else "verify" if uncertain_names else "ok"
+    finding(records, "control-names", control_status, "medium" if unlabeled else "low" if uncertain_names else "info",
+            "Some controls lack a static name" if unlabeled else "Some names depend on referenced elements" if uncertain_names else "Static control names detected in fetched HTML",
+            ", ".join(unlabeled[:8] + uncertain_names[:8]) if unlabeled or uncertain_names else f"Checked {len(parser.controls)} anchors, buttons, and form controls; rendered accessibility tree unverified.",
+            "Give each control meaningful visible text or an accessible name; associate labels with form fields." if unlabeled else "Inspect aria-labelledby targets in the rendered accessibility tree." if uncertain_names else "Verify interaction with keyboard and accessibility-tree inspection.",
+            page_url)
+
+    weak_links: list[str] = []
+    for control in parser.controls:
+        if control["tag"] != "a":
+            continue
+        href = control["attrs"].get("href", "").strip()
+        if not href or href == "#" or href.lower().startswith(("javascript:", "data:", "vbscript:")):
+            weak_links.append(f"<a> with href={href or '(missing)'}")
+        elif href.startswith("#") and href[1:] not in parser.ids:
+            weak_links.append(f"<a> with missing target {href}")
+    finding(records, "crawlable-links", "issue" if weak_links else "ok", "medium" if weak_links else "info",
+            "Some links lack a real destination" if weak_links else "Links have detectable destinations",
+            ", ".join(weak_links[:8]) if weak_links else f"Checked {sum(item['tag'] == 'a' for item in parser.controls)} anchors for usable href destinations.",
+            "Use <a href> with a real URL or valid in-page target; use <button> for actions." if weak_links else "No change needed.",
+            page_url)
+
+    if parser.jsonld:
+        invalid = []
+        for index, block in enumerate(parser.jsonld, 1):
+            try:
+                json.loads(block)
+            except json.JSONDecodeError as error:
+                invalid.append(f"block {index}: {error.msg} at line {error.lineno}")
+        finding(records, "jsonld-syntax", "issue" if invalid else "ok", "medium" if invalid else "info",
+                "JSON-LD could not be parsed" if invalid else "JSON-LD is parseable",
+                "; ".join(invalid) if invalid else f"Parsed {len(parser.jsonld)} JSON-LD block(s).",
+                "Fix JSON syntax, then verify the type and claims against visible page content." if invalid else "Check that its claims match visible content and use only schema relevant to this page.",
+                page_url)
+    else:
+        finding(records, "jsonld-syntax", "ok", "info", "No JSON-LD found",
+                "No script[type=application/ld+json] in fetched HTML.",
+                "No change needed unless structured data would accurately describe this page.",
+                page_url)
+
+    finding(records, "browser-journey", "verify", "medium", "Browser-agent task flow needs manual testing",
+            "Raw HTML cannot prove that rendered controls are visible, stable, or usable through the accessibility tree.",
+            "Run a real browser task: find the offering, follow the main CTA, and test a harmless form step if one exists. Inspect the accessibility tree and mobile layout.",
+            page_url)
+    return report
+
+
+def render_markdown(report: dict) -> str:
+    lines = [
+        "# Webby site access audit", "",
+        f"- Page: {report['page_url'] or report['requested_url']}",
+        f"- Checked: {report['audited_at']}",
+        f"- Scope: {report['scope']}",
+    ]
+    if report["robots_url"]:
+        lines.append(f"- Crawler policy checked at: {report['robots_url']}")
+    if report["sitemap_url"]:
+        lines.append(f"- Sitemap found at: {report['sitemap_url']}")
+    if report["redirects"]:
+        lines.append(f"- Redirects: {' → '.join(report['redirects'] + [report['page_url']])}")
+    groups = (("Issues", "issue"), ("Manual verification", "verify"), ("Observed signals", "ok"))
+    for heading, status in groups:
+        items = [item for item in report["findings"] if item["status"] == status]
+        if not items:
+            continue
+        lines.extend(["", f"## {heading}", ""])
+        for item in items:
+            lines.append(f"- **{item['title']}** ({item['severity']}) — {item['evidence']} [Source: {item['url']}]")
+            if status != "ok":
+                lines.append(f"  Fix/check: {item['remediation']}")
+    lines.extend(["", "This report checks page-level access and structure. It does not establish indexing, search placement, or live browser usability."])
+    return "\n".join(lines)
+
+
+def audit_deadline_reached(*_: object) -> None:
+    raise AuditError("Audit exceeded 30 seconds.")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("url", help="Public HTTPS page to inspect")
+    parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    parser.add_argument("--allow-private", action="store_true", help="Allow localhost/loopback HTTP for local tests only")
+    args = parser.parse_args()
+    if hasattr(signal, "setitimer"):
+        signal.signal(signal.SIGALRM, audit_deadline_reached)
+        signal.setitimer(signal.ITIMER_REAL, 30)
+    try:
+        report = audit(args.url, args.allow_private)
+    except AuditError as error:
+        report = {
+            "requested_url": args.url, "audited_at": datetime.now(timezone.utc).isoformat(),
+            "scope": "Audit stopped before completion.", "page_url": None,
+            "robots_url": None, "sitemap_url": None, "redirects": [],
+            "findings": [{"id": "audit-timeout", "status": "issue", "severity": "high",
+                          "title": "Audit did not complete", "url": args.url, "evidence": str(error),
+                          "remediation": "Retry when the public site is responsive."}],
+        }
+    finally:
+        if hasattr(signal, "setitimer"):
+            signal.setitimer(signal.ITIMER_REAL, 0)
+    if args.format == "json":
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    else:
+        print(render_markdown(report))
+    return 2 if any(item["id"] in ("page-fetch", "audit-timeout") for item in report["findings"]) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
